@@ -1,0 +1,141 @@
+'use client';
+
+import React from 'react';
+import { useWizardStore } from '@/store/useWizardStore';
+
+interface StyleOption {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  imageLabel: string;
+  colors: string[];
+}
+
+const STYLES: StyleOption[] = [
+  {
+    id: 'moderno',
+    title: 'Moderno y Limpio 🏙️',
+    description: 'Perfecto para transmitir profesionalismo y elegancia en tu negocio.',
+    imageUrl: 'https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=600&auto=format&fit=crop',
+    imageLabel: 'Estilo Premium',
+    colors: ['bg-[#0f4a50]', 'bg-teal-600', 'bg-slate-300', 'bg-amber-100'],
+  },
+  {
+    id: 'vibrante',
+    title: 'Vibrante y Juvenil 🎉',
+    description: 'Colores llamativos que capturan la atención rápido en redes.',
+    imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=600&auto=format&fit=crop',
+    imageLabel: 'Para Redes Sociales',
+    colors: ['bg-[#b34033]', 'bg-orange-400', 'bg-yellow-400', 'bg-purple-600'],
+  },
+  {
+    id: 'minimalista',
+    title: 'Minimalista ☕',
+    description: 'Menos es más. Espacios en blanco y tipografía clara.',
+    imageUrl: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=80&w=600&auto=format&fit=crop',
+    imageLabel: 'Elegancia Simple',
+    colors: ['bg-stone-800', 'bg-stone-400', 'bg-stone-200', 'bg-white'],
+  },
+];
+
+interface StepStyleProps {
+  onNext: () => void;
+}
+
+export function StepStyle({ onNext }: StepStyleProps) {
+  const { visualStyle, setVisualStyle } = useWizardStore();
+
+  const handleSelect = (id: string) => {
+    setVisualStyle(id);
+  };
+
+  const handleContinue = () => {
+    if (visualStyle) {
+      onNext();
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full animate-slide-up relative">
+      <div className="mt-4 mb-4">
+         <h2 className="text-[22px] font-bold text-[#0f4a50] leading-tight">
+           Elige un estilo visual
+         </h2>
+         <p className="text-slate-500 text-sm mt-1">
+           Selecciona cómo quieres que se vea tu flyer.
+         </p>
+      </div>
+      
+      <div className="flex flex-col gap-4 pb-24">
+        {STYLES.map((style) => {
+          const isSelected = visualStyle === style.id;
+          return (
+            <button
+              key={style.id}
+              onClick={() => handleSelect(style.id)}
+              className={`text-left bg-white rounded-[24px] p-4 border-2 transition-all ${
+                isSelected 
+                  ? 'border-[#0f4a50] shadow-md' 
+                  : 'border-transparent shadow-sm'
+              }`}
+            >
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-bold text-[#0f4a50] text-lg">
+                  {style.title}
+                </h3>
+                {isSelected && (
+                  <span className="bg-[#0f4a50] text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
+                    Elegido
+                  </span>
+                )}
+              </div>
+
+              {/* Image Container */}
+              <div className="relative h-[120px] rounded-2xl overflow-hidden mb-4 bg-slate-100">
+                <img 
+                  src={style.imageUrl} 
+                  alt={style.title} 
+                  className="object-cover w-full h-full"
+                />
+                <div className="absolute bottom-0 w-full p-3 bg-gradient-to-t from-black/70 to-transparent">
+                  <span className="text-white text-xs font-semibold shadow-sm">
+                    {style.imageLabel}
+                  </span>
+                </div>
+              </div>
+              
+              <p className="text-sm text-slate-600 mb-4 leading-relaxed">
+                {style.description}
+              </p>
+              
+              {/* Color Palette */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wide mr-1">Paleta:</span>
+                <div className="flex gap-2">
+                  {style.colors.map((color, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`w-5 h-5 rounded-full shadow-sm border border-black/5 ${color}`}
+                    ></div>
+                  ))}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Floating Action Button inside Step */}
+      <div className="fixed bottom-[90px] left-0 w-full pointer-events-none flex justify-center z-30">
+        <button
+          onClick={handleContinue}
+          disabled={!visualStyle}
+          className="pointer-events-auto w-[calc(100%-40px)] max-w-[calc(28rem-40px)] mx-5 bg-[#0f4a50] text-white rounded-[20px] py-4 text-[15px] font-bold text-center shadow-[0_8px_30px_rgb(15,74,80,0.3)] hover:bg-[#0c393e] transition-colors disabled:opacity-0 disabled:-translate-y-4 duration-300 transform"
+        >
+          Continuar
+        </button>
+      </div>
+    </div>
+  );
+}
