@@ -22,7 +22,7 @@ export function StepReview({ onNext, onEditStep }: StepReviewProps) {
   };
 
   return (
-    <div className="flex flex-col gap-6 h-full animate-slide-up pb-8">
+    <div className="flex min-h-full flex-col gap-6 animate-slide-up pb-8">
       <div className="text-center mt-6">
         <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-100 rounded-full mb-4 text-brand-600">
           <Sparkles className="w-8 h-8" />

@@ -55,7 +55,7 @@ export function StepObjective({ onNext }: StepObjectiveProps) {
   };
 
   return (
-    <div className="flex flex-col gap-5 h-full animate-slide-up">
+    <div className="flex min-h-full flex-col gap-5 animate-slide-up">
       <div className="flex items-end gap-3 mt-4">
         <div className="w-10 h-10 bg-brand-600 rounded-full flex items-center justify-center shrink-0 shadow-sm text-white font-bold">
           AI

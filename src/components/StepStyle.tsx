@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useWizardStore } from '@/store/useWizardStore';
+import { MessageSquareText } from 'lucide-react';
 
 interface StyleOption {
   id: string;
@@ -44,7 +45,7 @@ interface StepStyleProps {
 }
 
 export function StepStyle({ onNext }: StepStyleProps) {
-  const { visualStyle, setVisualStyle } = useWizardStore();
+  const { visualStyle, outputFormat, changeRequest, setVisualStyle, setOutputFormat, setChangeRequest } = useWizardStore();
 
   const handleSelect = (id: string) => {
     setVisualStyle(id);
@@ -57,7 +58,7 @@ export function StepStyle({ onNext }: StepStyleProps) {
   };
 
   return (
-    <div className="flex flex-col h-full animate-slide-up relative">
+    <div className="flex min-h-full flex-col animate-slide-up relative">
       <div className="mt-4 mb-4">
          <h2 className="text-[22px] font-bold text-[#0f4a50] leading-tight">
            Elige un estilo visual
@@ -124,6 +125,24 @@ export function StepStyle({ onNext }: StepStyleProps) {
             </button>
           );
         })}
+      </div>
+
+      <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+        <h3 className="font-bold text-[#0f4a50]">¿Dónde vas a publicar?</h3>
+        <p className="mb-3 mt-1 text-xs text-slate-500">El diseño se adaptará automáticamente al formato elegido.</p>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            ['post', 'Post', '1:1'],
+            ['story', 'Historia', '9:16'],
+            ['whatsapp', 'WhatsApp', '4:5'],
+          ] as const).map(([id, label, ratio]) => <button key={id} onClick={() => setOutputFormat(id)} className={`rounded-xl border-2 px-2 py-3 text-center ${outputFormat === id ? 'border-[#0f4a50] bg-[#eef5f6]' : 'border-slate-100'}`}><span className="block text-sm font-bold text-slate-700">{label}</span><span className="text-[10px] text-slate-400">{ratio}</span></button>)}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+        <div className="mb-2 flex items-center gap-2 font-bold text-slate-700"><MessageSquareText className="h-4 w-4 text-[#b34033]" />¿Quieres pedir algún cambio?</div>
+        <p className="mb-2 text-xs text-slate-500">Puedes dejarlo vacío y pedir cambios después en la vista previa.</p>
+        <textarea value={changeRequest} onChange={e => setChangeRequest(e.target.value)} rows={3} placeholder="Ej. Usa colores cálidos y un estilo elegante" className="w-full resize-none rounded-xl bg-slate-50 px-3 py-2 text-sm outline-none ring-1 ring-slate-100 focus:bg-white focus:ring-[#0f4a50]" />
       </div>
 
       {/* Floating Action Button inside Step */}

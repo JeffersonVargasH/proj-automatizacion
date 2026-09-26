@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useWizardStore } from '@/store/useWizardStore';
-import { Mic, Store, Plus } from 'lucide-react';
+import { Mic, Store, Plus, ImagePlus, X } from 'lucide-react';
 
 const SUGGESTIONS = [
   'Helado de Fresa',
@@ -16,20 +16,31 @@ interface StepProductProps {
 }
 
 export function StepProduct({ onNext }: StepProductProps) {
-  const { productName, setProductName } = useWizardStore();
+  const { productName, productImages, setProductName, setProductImages } = useWizardStore();
+
+  const handleImages = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []).slice(0, 3 - productImages.length);
+    if (!files.length) return;
+    Promise.all(files.map(file => new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.readAsDataURL(file);
+    }))).then(images => setProductImages([...productImages, ...images]));
+    event.target.value = '';
+  };
 
   const handleSuggestionClick = (suggestion: string) => {
     setProductName(suggestion);
   };
 
   const handleContinue = () => {
-    if (productName.trim().length > 0) {
+    if (productName.trim().length > 0 && productImages.length > 0) {
       onNext();
     }
   };
 
   return (
-    <div className="flex flex-col gap-6 h-full animate-slide-up">
+    <div className="flex min-h-full flex-col gap-6 animate-slide-up">
       {/* Chat Bubble from Assistant */}
       <div className="flex items-end gap-3 mt-4">
         <div className="w-10 h-10 bg-brand-600 rounded-full flex items-center justify-center shrink-0 shadow-sm text-white font-bold">
@@ -40,6 +51,18 @@ export function StepProduct({ onNext }: StepProductProps) {
             ¿Qué producto o servicio quieres mostrar en tu flyer?
           </p>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+        <div className="mb-1 flex items-center justify-between">
+          <div><p className="font-bold text-slate-700">Imágenes del producto</p><p className="text-xs text-slate-400">Sube entre 1 y 3 fotos claras.</p></div>
+          <span className="text-xs font-bold text-slate-400">{productImages.length}/3</span>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {productImages.map((image, index) => <div key={image} className="relative aspect-square overflow-hidden rounded-xl bg-slate-100"><img src={image} alt={`Producto ${index + 1}`} className="h-full w-full object-cover" /><button onClick={() => setProductImages(productImages.filter((_, i) => i !== index))} className="absolute right-1 top-1 rounded-full bg-slate-900/70 p-1 text-white" aria-label="Quitar imagen"><X className="h-3 w-3" /></button></div>)}
+          {productImages.length < 3 && <label className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:border-[#0f4a50] hover:text-[#0f4a50]"><ImagePlus className="h-6 w-6" /><span className="mt-1 text-[10px] font-bold">Agregar foto</span><input type="file" accept="image/*" multiple onChange={handleImages} className="hidden" /></label>}
+        </div>
+        {productImages.length === 0 && <p className="mt-2 text-xs font-semibold text-[#b34033]">Agrega al menos una imagen para continuar.</p>}
       </div>
       
       {/* Input Card */}
@@ -92,7 +115,7 @@ export function StepProduct({ onNext }: StepProductProps) {
 
       <button
         onClick={handleContinue}
-        disabled={productName.trim().length === 0}
+        disabled={productName.trim().length === 0 || productImages.length === 0}
         className="w-full mt-4 mb-4 py-4 bg-slate-900 text-white rounded-xl font-bold text-lg shadow-premium hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Continuar

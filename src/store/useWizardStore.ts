@@ -11,6 +11,9 @@ interface WizardState {
   objective: string;
   visualStyle: string;
   imageUrl: string;
+  productImages: string[];
+  changeRequest: string;
+  outputFormat: 'post' | 'story' | 'whatsapp';
   extraInfo: string;
   price: string;
   date: string;
@@ -21,6 +24,9 @@ interface WizardState {
   setObjective: (objective: string) => void;
   setVisualStyle: (style: string) => void;
   setImageUrl: (url: string) => void;
+  setProductImages: (images: string[]) => void;
+  setChangeRequest: (request: string) => void;
+  setOutputFormat: (format: 'post' | 'story' | 'whatsapp') => void;
   setExtraInfo: (info: string) => void;
   setPrice: (price: string) => void;
   setDate: (date: string) => void;
@@ -40,6 +46,9 @@ export const useWizardStore = create<WizardState>()(
       objective: '',
       visualStyle: '',
       imageUrl: '',
+      productImages: [],
+      changeRequest: '',
+      outputFormat: 'post',
       extraInfo: '',
       price: '',
       date: '',
@@ -49,6 +58,9 @@ export const useWizardStore = create<WizardState>()(
       setObjective: (obj) => set({ objective: obj }),
       setVisualStyle: (style) => set({ visualStyle: style }),
       setImageUrl: (url) => set({ imageUrl: url }),
+      setProductImages: (images) => set({ productImages: images }),
+      setChangeRequest: (request) => set({ changeRequest: request }),
+      setOutputFormat: (format) => set({ outputFormat: format }),
       setExtraInfo: (info) => set({ extraInfo: info }),
       setPrice: (price) => set({ price }),
       setDate: (date) => set({ date }),
@@ -59,6 +71,9 @@ export const useWizardStore = create<WizardState>()(
         objective: '',
         visualStyle: '',
         imageUrl: '',
+        productImages: [],
+        changeRequest: '',
+        outputFormat: 'post',
         extraInfo: '',
         price: '',
         date: '',

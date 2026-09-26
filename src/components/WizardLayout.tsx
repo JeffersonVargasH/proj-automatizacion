@@ -46,8 +46,8 @@ export function WizardLayout({
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto px-4 pb-36 pt-2">
-        <div className="h-full animate-fade-in relative">
+      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-40 pt-2">
+        <div className="min-h-full animate-fade-in relative">
           {children}
         </div>
       </main>
