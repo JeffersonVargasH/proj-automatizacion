@@ -1,4 +1,4 @@
-# Impulsa — frontend
+# Clic — frontend
 
 Estudio local de publicaciones para emprendedores. Incluye inicio, identidad del negocio, creación guiada, editor visual, exportación PNG, compartir archivos e historial con búsqueda, duplicación y eliminación.
 
@@ -39,6 +39,26 @@ La maqueta local no es una imagen generada con IA. Las sugerencias de texto son 
 La futura API de generación deberá devolver un ID de trabajo y estados de procesamiento, éxito o error. Para editar textos por separado sobre una imagen generada, el backend tendrá que devolver capas o un fondo sin texto: un PNG aplanado por sí solo no ofrece edición de capas.
 
 La ruta previa `/api/upload` se conserva pero el flujo local no la utiliza. Requiere configurar su almacenamiento antes de integrarla.
+
+## Integración con n8n en Docker
+
+La web ya dispone de dos proxies server-side para no exponer la URL ni el token de n8n al navegador:
+
+- `POST /api/generate`: envía `generationPayload(design)` y espera `{ "ticket_id": "..." }`.
+- `GET /api/generate/status?ticket_id=...`: espera `{ "status": "processing" | "completed" | "error", "finalUrl": "..." }`.
+
+Copia `.env.example` como `.env.local` y ajusta las URLs si n8n no está publicado en el puerto local 5678. En n8n, crea un Webhook `POST /creamas-generate` que responda inmediatamente con un `ticket_id`, y otro Webhook `GET /status` que consulte el estado almacenado. El workflow debe actualizar ese estado al terminar y devolver `finalUrl` con la imagen generada.
+
+El JSON de `Images.json` parte de Telegram y termina enviando un video a Telegram; no es todavía el workflow web de CreaMás. Se dejó una adaptación importable en `n8n/creamas-openai-images.json`: recibe el contrato de `generationPayload`, responde un `ticket_id`, conserva la rama de análisis/prompt y usa OpenAI Image API para generar la imagen. También expone el estado mediante `GET /webhook/status`. El resultado se guarda temporalmente como `data:` URL para que el prototipo pueda mostrarlo y descargarlo desde el editor.
+
+Para usar la adaptación:
+
+1. En n8n importa `n8n/creamas-openai-images.json` y activa el workflow. Conecta las credenciales de OpenAI en `OpenAI Vision: Analyze Reference Image` y `LLM: OpenAI Chat`.
+2. Expón `OPENAI_API_KEY` al contenedor n8n. El nodo `OpenAI: Generate Image` la usa únicamente en el servidor para llamar a `https://api.openai.com/v1/images/generations`; no la pongas en el frontend ni la guardes en el JSON.
+3. En `.env.local` configura `N8N_GENERATE_WEBHOOK_URL` y `N8N_STATUS_WEBHOOK_URL`. Si Next corre en el host y n8n publica el puerto `5678`, los valores de `.env.example` funcionan.
+4. La imagen de referencia actual llega como data URL. Para una instalación real conviene subirla primero a Spaces/S3 y enviar una URL autorizada; el almacenamiento temporal en `data:` URL es solo para validar el flujo local y puede ocupar bastante memoria en n8n.
+
+La adaptación no modifica ni sobrescribe `C:\Users\yo\Downloads\Images.json`; ese archivo original conserva el flujo Telegram/video. Las credenciales y tokens que contenga deben revocarse y regenerarse si fueron expuestos.
 
 ## Verificación manual
 

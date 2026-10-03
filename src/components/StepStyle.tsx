@@ -20,7 +20,7 @@ const STYLES: StyleOption[] = [
     description: 'Perfecto para transmitir profesionalismo y elegancia en tu negocio.',
     imageUrl: 'https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=600&auto=format&fit=crop',
     imageLabel: 'Estilo Premium',
-    colors: ['bg-[#0f4a50]', 'bg-teal-600', 'bg-slate-300', 'bg-amber-100'],
+    colors: ['bg-[#3157d5]', 'bg-indigo-400', 'bg-slate-300', 'bg-amber-100'],
   },
   {
     id: 'vibrante',
@@ -28,7 +28,7 @@ const STYLES: StyleOption[] = [
     description: 'Colores llamativos que capturan la atención rápido en redes.',
     imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=600&auto=format&fit=crop',
     imageLabel: 'Para Redes Sociales',
-    colors: ['bg-[#b34033]', 'bg-orange-400', 'bg-yellow-400', 'bg-purple-600'],
+    colors: ['bg-[#c94b45]', 'bg-orange-400', 'bg-amber-300', 'bg-violet-500'],
   },
   {
     id: 'minimalista',

@@ -10,7 +10,7 @@ export const contentTypes = ['Flyer', 'Publicación', 'Historia', 'Oferta', 'Inv
 export const objectives = ['Vender', 'Anunciar un producto', 'Promocionar una oferta', 'Atraer visitas', 'Informar', 'Invitar a un evento'];
 export const tones = ['Cercano', 'Profesional', 'Juvenil', 'Elegante', 'Divertido'];
 export type Brand = { name: string; logo: string; primary: string; secondary: string; phone: string; instagram: string; facebook: string; address: string };
-export const emptyBrand: Brand = { name: '', logo: '', primary: '#115e59', secondary: '#f4ede2', phone: '', instagram: '', facebook: '', address: '' };
+export const emptyBrand: Brand = { name: '', logo: '', primary: '#3F63E9', secondary: '#F7F9FC', phone: '', instagram: '', facebook: '', address: '' };
 export type Design = {
   id: string; createdAt: string; updatedAt: string; brand: Brand;
   type: string; objective: string; product: string; description: string;

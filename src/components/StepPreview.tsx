@@ -17,7 +17,7 @@ export function StepPreview() {
   const [format, setFormat] = useState<Format>(outputFormat);
   const [headline, setHeadline] = useState(productName || 'Tu producto especial');
   const [description, setDescription] = useState('Una opción deliciosa para disfrutar y compartir.');
-  const [accent, setAccent] = useState(visualStyle === 'minimalista' ? '#403b36' : visualStyle === 'moderno' ? '#0f4a50' : '#b34033');
+  const [accent, setAccent] = useState(visualStyle === 'minimalista' ? '#4b5568' : visualStyle === 'moderno' ? '#3157d5' : '#c94b45');
   const [saved, setSaved] = useState(false);
   const [image, setImage] = useState(productImages[0] || '');
   const [history, setHistory] = useState<{ headline: string; format: Format; accent: string }[]>([]);
@@ -46,7 +46,7 @@ export function StepPreview() {
     canvas.width = 1080; canvas.height = format === 'story' ? 1920 : format === 'whatsapp' ? 1350 : 1080;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.fillStyle = '#f8f4ee'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#fbf9f5'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = accent; ctx.fillRect(0, 0, canvas.width, 190);
     ctx.fillStyle = '#ffffff'; ctx.font = 'bold 58px Arial'; ctx.fillText(objectiveLabel, 70, 120);
     ctx.fillStyle = '#172126'; ctx.font = 'bold 92px Arial'; ctx.fillText(headline.slice(0, 20), 70, 430);

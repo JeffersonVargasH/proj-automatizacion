@@ -1,0 +1,418 @@
+{
+  "name": "CreaMás - Generación de imágenes con OpenAI",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "creamas-generate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "creamas-generate-hook",
+      "name": "CreaMÃ¡s Generate Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        160,
+        0
+      ],
+      "typeVersion": 2.1
+    },
+    {
+      "parameters": {
+      "jsCode": "const input = $json.body ?? $json;\nconst requestId = String(input.requestId ?? input.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);\nconst product = input.product ?? {};\nconst images = Array.isArray(product.images) ? product.images : [];\nconst primaryImage = images[0] ?? '';\nconst dataUrlMatch = primaryImage.match(/^data:([^;]+);base64,(.+)$/s);\nconst state = $getWorkflowStaticData('global');\nstate.jobs ??= {};\nstate.jobs[requestId] = {\n  status: 'processing',\n  createdAt: new Date().toISOString(),\n};\nconst item = {\n  json: {\n    ...input,\n    ticket_id: requestId,\n    status: 'processing',\n    primaryImage,\n  },\n};\nif (dataUrlMatch) {\n  item.binary = {\n    reference: {\n      data: dataUrlMatch[2],\n      mimeType: dataUrlMatch[1],\n      fileName: 'reference-image',\n    },\n  };\n}\nreturn [item];"
+      },
+      "id": "creamas-init-job",
+      "name": "Initialize Web Job",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        400,
+        0
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ticket_id: $json.ticket_id, status: $json.status }) }}",
+        "options": {}
+      },
+      "id": "creamas-respond-ticket",
+      "name": "Respond with Ticket",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        640,
+        0
+      ],
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "text": "=You are an image analysis assistant.\n\nYour task is to analyze the given image and output results **only in YAML format**. Do not add explanations, comments, or extra text outside YAML.\n\nRules:\n\n- If the image depicts a **product**, return:\n    \n    ```yaml\n    brand_name: (brand if visible or inferable)\n    color_scheme:\n      - hex: (hex code of each prominent color)\n        name: (descriptive name of the color)\n    font_style: (serif/sans-serif, bold/thin, etc.)\n    visual_description: (1Ã¢â‚¬â€œ2 sentences summarizing what is seen, ignoring the background)\n    \n    ```\n    \n- If the image depicts a **character**, return:\n    \n    ```yaml\n    character_name: (name if visible or inferable, else \"unknown\")\n    color_scheme:\n      - hex: (hex code of each prominent color on the character)\n        name: (descriptive name of the color)\n    outfit_style: (clothing style, accessories, or notable features)\n    visual_description: (1Ã¢â‚¬â€œ2 sentences summarizing what the character looks like, ignoring the background)\n    \n    ```\n    \n- If the image depicts **both**, return **both sections** in YAML.\n\nOnly output valid YAML. No explanations.",
+        "inputType": "base64",
+        "binaryPropertyName": "reference",
+        "options": {}
+      },
+      "id": "576350bc-4e00-44d6-9b1c-33e845f5c49d",
+      "name": "OpenAI Vision: Analyze Reference Image",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "position": [
+        880,
+        0
+      ],
+      "typeVersion": 1.8
+    },
+    {
+      "parameters": {
+        "jsCode": "const primaryImage = String($json.primaryImage ?? '');\nconst match = primaryImage.match(/^data:([^;]+);base64,(.+)$/s);\nif (!match) {\n  throw new Error('La imagen de referencia no tiene un formato data URL válido.');\n}\nreturn [{\n  json: $json,\n  binary: {\n    reference: {\n      data: match[2],\n      mimeType: match[1],\n      fileName: 'reference-image',\n    },\n  },\n}];"
+      },
+      "id": "creamas-prepare-vision-binary",
+      "name": "Prepare Reference for Vision",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        640,
+        160
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n\t\"image_prompt\": \"string\"\n}"
+      },
+      "id": "dc6e92b4-11cc-42e6-be07-74540060b54c",
+      "name": "LLM: Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "position": [
+        1280,
+        192
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "id": "b5fb190c-6106-45ed-bf1a-de3447a2ab6d",
+      "name": "LLM: OpenAI Chat",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "position": [
+        1056,
+        192
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Create one concise marketing image prompt from the web request and the reference image analysis.\n\nBusiness: {{ $('Initialize Web Job').item.json.business }}\nProduct: {{ $('Initialize Web Job').item.json.product.name }}\nProduct description: {{ $('Initialize Web Job').item.json.product.description }}\nObjective: {{ $('Initialize Web Job').item.json.content.objective }}\nFormat: {{ $('Initialize Web Job').item.json.content.format }}\nStyle: {{ $('Initialize Web Job').item.json.content.style }}\nTone: {{ $('Initialize Web Job').item.json.content.tone }}\nUser instructions: {{ $('Initialize Web Job').item.json.content.instructions }}\n\nReference image analysis:\n{{ $json.content }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=ROLE: UGC Image Prompt Builder  \n\nGOAL:  \nGenerate one concise, natural, and realistic image prompt (Ã¢â€°Â¤120 words) from a given product or reference image. The prompt must simulate authentic UGC (user-generated content) photography.  \n\nRULES:  \n- Always output **one JSON object only** with the key:  \n  - `image_prompt`: (string with full description)  \n- Do **not** add commentary, metadata, or extra keys. JSON only.  \n\nSTYLE GUIDELINES:  \n- Tone: casual, unstaged, lifelike, handheld snapshot.  \n- Camera cues: include at least 2Ã¢â‚¬â€œ3 (e.g., phone snapshot, handheld framing, off-center composition, natural indoor light, soft shadows, slight motion blur, auto exposure, unpolished look, mild grain).  \n- Realism: embrace imperfections (wrinkles, stray hairs, skin texture, clutter, smudges).  \n- Packaging/Text: preserve exactly as visible. Never invent claims, numbers, or badges.  \n- Diversity: if people appear but are unspecified, vary gender/ethnicity naturally; default age range = 21Ã¢â‚¬â€œ38.  \n- Setting: default to real-world everyday spaces (home, street, store, gym, office).  \n\nSAFETY:  \n- No copyrighted character names.  \n- No dialogue or scripts. Only describe scenes.  \n\nOUTPUT CONTRACT:  \n- JSON only, no prose outside.  \n- Max 120 words in `image_prompt`.  \n- Must cover: subject, action, mood, setting, style/camera, colors, and text accuracy.  \n\nCHECKLIST BEFORE OUTPUT:  \n- Natural handheld tone?  \n- At least 2 camera cues included?  \n- Product text preserved exactly?  \n- Only JSON returned?  \n\n---  \n\n### Example  \n\nGood Example :  \n```json\n{ \"image_prompt\": \"a young adult casually holding a skincare tube near a bathroom mirror; action: dabs small amount on the back of the hand; mood: easy morning; setting: small apartment bathroom with towel on rack and toothbrush cup; style/camera: phone snapshot, handheld framing, off-center composition, natural window light, slight motion blur, mild grain; colors: soft whites and mint label; text accuracy: keep every word on the tube exactly as visible, no added claims\" }\n"
+        }
+      },
+      "id": "057d4d9c-6713-46c3-9b63-c3176c03cef9",
+      "name": "Generate Image Prompt",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        1120,
+        0
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const primaryImage = String($('Initialize Web Job').first().json.primaryImage ?? '');\nconst match = primaryImage.match(/^data:([^;]+);base64,(.+)$/s);\nif (!match) {\n  throw new Error('La imagen de referencia no tiene un formato data URL válido.');\n}\nreturn [{\n  json: $json,\n  binary: {\n    reference: {\n      data: match[2],\n      mimeType: match[1],\n      fileName: 'reference-image',\n    },\n  },\n}];"
+      },
+      "id": "creamas-prepare-edit-binary",
+      "name": "Attach Reference for Edit",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1280,
+        0
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/images/edits",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.OPENAI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "image[]",
+              "inputDataFieldName": "reference"
+            },
+            {
+              "name": "model",
+              "value": "gpt-image-2.5-flare"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $('Generate Image Prompt').item.json.output.image_prompt + '\\n\\nFINAL SOCIAL GRAPHIC INSTRUCTION: Generate the complete finished social-media image yourself. Do not return a blank photo or a separate mockup. Compose the uploaded product as the visual centerpiece, with a polished editorial infographic layout similar to a beauty-product Instagram post: soft pastel background, decorative shapes, large readable typography, arrows or callouts, and all offer information integrated inside the same image. Reproduce the following copy EXACTLY, character by character. Do not paraphrase, translate, shorten, correct, or invent any text. Visible text: Brand: ' + ($('Initialize Web Job').item.json.business.name || 'Mi negocio') + '; Product: ' + ($('Initialize Web Job').item.json.product.name || '') + '; Title: ' + ($('Initialize Web Job').item.json.copy.title || '') + '; Description: ' + ($('Initialize Web Job').item.json.copy.body || '') + '; Price: ' + ($('Initialize Web Job').item.json.product.price || '') + '; Validity: ' + ($('Initialize Web Job').item.json.content.validity || '') + '; Call to action: ' + ($('Initialize Web Job').item.json.copy.cta || '') + '; Contact: ' + ($('Initialize Web Job').item.json.product.contact || $('Initialize Web Job').item.json.content.contact || '') + '. Preserve the exact product bottle, packaging, label, logo, colors, proportions, and existing packaging text. Add no other claims or text. The output itself must already contain the complete design and all the copy.' }}"
+            },
+            {
+              "name": "size",
+              "value": "1024x1024"
+            },
+            {
+              "name": "quality",
+              "value": "low"
+            },
+            {
+              "name": "output_format",
+              "value": "jpeg"
+            },
+            {
+              "name": "output_compression",
+              "value": "80"
+            },
+            {
+              "name": "n",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "5e68d469-e1af-4b0f-8b65-c51423d8dc92",
+      "name": "OpenAI: Edit Reference Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1440,
+        0
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const requestId = $('Initialize Web Job').first().json.ticket_id;\nconst state = $getWorkflowStaticData('global');\nstate.jobs ??= {};\nconst current = state.jobs[requestId] ?? {};\nconst item = $input.first();\nconst generated = item.json?.data?.[0];\nconst finalUrl = generated?.b64_json\n  ? `data:image/${generated.output_format || 'jpeg'};base64,${generated.b64_json}`\n  : generated?.url ?? null;\nstate.jobs[requestId] = {\n  ...current,\n  status: finalUrl ? 'completed' : 'error',\n  finalUrl,\n  error: finalUrl ? null : 'OpenAI no devolvió una imagen.',\n  completedAt: new Date().toISOString(),\n};\nreturn [{ json: state.jobs[requestId] }];"
+      },
+      "id": "creamas-finalize-job",
+      "name": "Finalize Image Job",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1680,
+        0
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "status",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "creamas-status-hook",
+      "name": "Status Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        400,
+        360
+      ],
+      "typeVersion": 2.1
+    },
+    {
+      "parameters": {
+        "jsCode": "const ticketId = String($json.query?.ticket_id ?? $json.ticket_id ?? '');\nconst state = $getWorkflowStaticData('global');\nconst job = state.jobs?.[ticketId];\nreturn [{\n  json: job\n    ? { ...job, ticket_id: ticketId }\n    : { status: 'processing', ticket_id: ticketId },\n}];"
+      },
+      "id": "creamas-lookup-job",
+      "name": "Lookup Image Job",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        640,
+        360
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "creamas-respond-status",
+      "name": "Respond with Image Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        880,
+        360
+      ],
+      "typeVersion": 1.4
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "CreaMÃ¡s Generate Webhook": {
+      "main": [
+        [
+          {
+            "node": "Initialize Web Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize Web Job": {
+      "main": [
+        [
+          {
+            "node": "Respond with Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond with Ticket": {
+      "main": [
+        [
+          {
+            "node": "Prepare Reference for Vision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Reference for Vision": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Vision: Analyze Reference Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Vision: Analyze Reference Image": {
+      "main": [
+        [
+          {
+            "node": "Generate Image Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Generate Image Prompt",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: OpenAI Chat": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate Image Prompt",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Image Prompt": {
+      "main": [
+        [
+          {
+            "node": "Attach Reference for Edit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Reference for Edit": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Edit Reference Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Webhook": {
+      "main": [
+        [
+          {
+            "node": "Lookup Image Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Image Job": {
+      "main": [
+        [
+          {
+            "node": "Respond with Image Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Edit Reference Image": {
+      "main": [
+        [
+          {
+            "node": "Finalize Image Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "creamas-web-images-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

@@ -7,7 +7,7 @@ function database(): Promise<IDBDatabase> {
     req.onupgradeneeded = () => req.result.createObjectStore('records');
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(new Error('No se pudo abrir el almacenamiento del navegador.'));
-    req.onblocked = () => reject(new Error('Cierra otras pestañas de Impulsa y vuelve a intentar.'));
+    req.onblocked = () => reject(new Error('Cierra otras pestañas de Clic y vuelve a intentar.'));
   });
 }
 async function transaction<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
@@ -19,10 +19,13 @@ async function transaction<T>(mode: IDBTransactionMode, run: (store: IDBObjectSt
     tx.onerror = tx.onabort = () => { db.close(); reject(new Error('No se pudo guardar. Revisa el espacio disponible o los permisos del navegador.')); };
   });
 }
+let storageScope = 'guest';
+function scopedKey(key: string) { return `${storageScope}:${key}`; }
 export const storage = {
-  get: <T>(key: string) => transaction<T | undefined>('readonly', s => s.get(key)),
-  put: (key: string, value: Brand | Design | Design[]) => transaction('readwrite', s => s.put(value, key)),
-  remove: (key: string) => transaction('readwrite', s => s.delete(key)),
+  setScope: (scope: string) => { storageScope = scope.trim() || 'guest'; },
+  get: <T>(key: string) => transaction<T | undefined>('readonly', s => s.get(scopedKey(key))),
+  put: (key: string, value: Brand | Design | Design[]) => transaction('readwrite', s => s.put(value, scopedKey(key))),
+  remove: (key: string) => transaction('readwrite', s => s.delete(scopedKey(key))),
 };
 
 export async function readPhoto(file: File, logo = false): Promise<string> {
