@@ -1,16 +1,23 @@
 'use client';
 
 import { ChangeEvent, ReactNode, useState } from 'react';
-import { AddPhotoAlternate, DeleteOutline } from '@mui/icons-material';
-import { Box, Button, IconButton, Paper, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { AddPhotoAlternate, Check, DeleteOutline } from '@mui/icons-material';
+import { Box, Button, Card, CardActionArea, CardContent, IconButton, Paper, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { Brand, styleLook, styles } from '@/lib/studio';
+import { contrast } from '@/lib/studio-renderer';
 import { readPhoto } from '@/lib/studio-storage';
 
-export function Field({ label, value, onChange, multiline = false, type = 'text', maxLength = 120, placeholder, required = false }: { label: string; value: string; onChange: (value: string) => void; multiline?: boolean; type?: string; maxLength?: number; placeholder?: string; required?: boolean }) {
-  return <TextField fullWidth label={label} value={value} onChange={event => onChange(event.target.value)} type={type} multiline={multiline} minRows={multiline ? 3 : undefined} inputProps={{ maxLength }} placeholder={placeholder} required={required} slotProps={{ inputLabel: type === 'date' || type === 'datetime-local' ? { shrink: true } : undefined }} />;
+export function Field({ label, value, onChange, multiline = false, type = 'text', maxLength = 120, placeholder, required = false, disabled = false }: { label: string; value: string; onChange: (value: string) => void; multiline?: boolean; type?: string; maxLength?: number; placeholder?: string; required?: boolean; disabled?: boolean }) {
+  return <TextField fullWidth label={label} value={value} onChange={event => onChange(event.target.value)} type={type} multiline={multiline} minRows={multiline ? 3 : undefined} inputProps={{ maxLength }} placeholder={placeholder} required={required} disabled={disabled} slotProps={{ inputLabel: type === 'date' || type === 'datetime-local' ? { shrink: true } : undefined }} />;
 }
 
 export function Choices({ label, options, value, onChange }: { label: string; options: readonly string[]; value: string; onChange: (value: string) => void }) {
   return <Box component="fieldset" sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}><Typography component="legend" variant="body2" fontWeight={700} color="text.secondary" sx={{ mb: 1 }}>{label}</Typography><ToggleButtonGroup exclusive value={value} onChange={(_, next: string | null) => next && onChange(next)} sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, '& .MuiToggleButtonGroup-grouped': { border: '1px solid', borderColor: 'divider', borderRadius: 2, px: 1.5, py: 1, textTransform: 'none', color: 'text.secondary', '&.Mui-selected': { color: 'primary.dark', backgroundColor: '#EEF2FF', borderColor: 'primary.main' } } }}>{options.map(option => <ToggleButton key={option} value={option} aria-label={option}>{option}</ToggleButton>)}</ToggleButtonGroup></Box>;
+}
+
+/** Vista previa de cada estilo pintada con los colores de la marca. */
+export function StylePicker({ value, onChange, brand }: { value: string; onChange: (style: string) => void; brand: Pick<Brand, 'primary' | 'secondary'> }) {
+  return <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 1.25 }}>{styles.map(style => { const look = styleLook(style, brand); return <Card key={style} variant="outlined" sx={{ borderColor: value === style ? 'primary.main' : 'divider', bgcolor: value === style ? '#EEF2FF' : 'background.paper' }}><CardActionArea onClick={() => onChange(style)}><Box sx={{ height: 84, m: 1.25, borderRadius: 2, position: 'relative', overflow: 'hidden', bgcolor: look.background, border: '1px solid', borderColor: 'divider' }}><Box sx={{ position: 'absolute', right: -18, top: -18, width: 70, height: 70, borderRadius: '50%', bgcolor: look.color, opacity: style === 'Minimalista' ? .15 : .45 }} /><Typography sx={{ position: 'absolute', left: 12, top: 10, color: contrast(look.background), fontWeight: 800, fontFamily: look.font === 'serif' ? 'Georgia, serif' : undefined }}>Aa</Typography><Box sx={{ position: 'absolute', left: 12, bottom: 12, px: 1.25, py: .25, borderRadius: 1, bgcolor: look.color, color: contrast(look.color), fontSize: 12, fontWeight: 800 }}>Pedir</Box></Box><CardContent sx={{ pt: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><Typography fontWeight={700}>{style}</Typography>{value === style && <Check color="primary" fontSize="small" />}</CardContent></CardActionArea></Card>; })}</Box>;
 }
 
 export function Panel({ title, children, className = '' }: { title?: string; children: ReactNode; className?: string }) {

@@ -4,7 +4,7 @@ import AppThemeProvider from '@/components/theme/AppThemeProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'CreaMás · Estudio de publicaciones',
+  title: 'Clic · Estudio de publicaciones',
   description: 'Crea publicaciones para tu negocio con tus fotos, colores e ideas.',
 };
 

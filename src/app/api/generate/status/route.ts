@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     if (process.env.N8N_WEBHOOK_TOKEN) headers['x-creamas-token'] = process.env.N8N_WEBHOOK_TOKEN;
     const response = await fetch(target, { headers, signal: AbortSignal.timeout(10_000), cache: 'no-store' });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) return NextResponse.json({ error: data.error || 'n8n no pudo consultar el estado.' }, { status: 502 });
+    if (!response.ok) return NextResponse.json({ error: data.error || 'No se pudo consultar el avance de la generación.' }, { status: 502 });
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error consultando estado en n8n:', error);

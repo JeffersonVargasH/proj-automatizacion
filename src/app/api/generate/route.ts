@@ -20,15 +20,15 @@ export async function POST(request: Request) {
     });
 
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) return NextResponse.json({ error: data.error || 'n8n rechazó la solicitud.' }, { status: 502 });
+    if (!response.ok) return NextResponse.json({ error: data.error || 'El generador con IA no aceptó la solicitud. Inténtalo de nuevo.' }, { status: 502 });
 
     const ticketId = data.ticket_id || data.ticketId || data.requestId;
-    if (!ticketId) return NextResponse.json({ error: 'n8n no devolvió un ticket_id.' }, { status: 502 });
+    if (!ticketId) return NextResponse.json({ error: 'El generador con IA respondió de forma inesperada. Inténtalo de nuevo.' }, { status: 502 });
     return NextResponse.json({ ...data, ticket_id: ticketId });
   } catch (error) {
     const message = error instanceof Error && error.name === 'TimeoutError'
-      ? 'n8n tardó demasiado en aceptar la solicitud.'
-      : 'No se pudo conectar con n8n. Revisa que Docker esté ejecutándose.';
+      ? 'El generador con IA tardó demasiado en responder. Inténtalo de nuevo.'
+      : 'El generador con IA no está disponible en este momento.';
     console.error('Error iniciando generación en n8n:', error);
     return NextResponse.json({ error: message }, { status: 502 });
   }

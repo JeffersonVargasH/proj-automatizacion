@@ -52,23 +52,26 @@ async function renderSocialLayout(ctx: CanvasRenderingContext2D, d: Design, img:
     return;
   }
 
-  const base = '#FFF3F4';
-  ctx.fillStyle = base; ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = '#A8F0BE'; ctx.beginPath(); ctx.ellipse(-w * 0.03, -h * 0.01, w * 0.36, h * 0.12, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#A8F0BE'; ctx.beginPath(); ctx.ellipse(w * 1.03, h * 1.02, w * 0.3, h * 0.13, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#D9D2CE'; ctx.beginPath(); ctx.ellipse(w * 0.16, h * 0.25, w * 0.1, h * 0.045, -0.3, 0, Math.PI * 2); ctx.fill();
+  // Decoraciones derivadas de los colores de la marca (d.color / d.background).
+  ctx.globalAlpha = d.style === 'Minimalista' ? 0.12 : 0.32;
+  ctx.fillStyle = d.color; ctx.beginPath(); ctx.ellipse(-w * 0.03, -h * 0.01, w * 0.36, h * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(w * 1.03, h * 1.02, w * 0.3, h * 0.13, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 0.08;
+  ctx.fillStyle = ink; ctx.beginPath(); ctx.ellipse(w * 0.16, h * 0.25, w * 0.1, h * 0.045, -0.3, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.ellipse(w * 0.86, h * 0.72, w * 0.09, h * 0.04, 0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+  const accent = ink === '#ffffff' ? 'rgba(255,255,255,.6)' : 'rgba(20,46,44,.45)';
 
-  const displayFont = 'Georgia, serif';
+  const displayFont = d.font === 'serif' ? 'Georgia, serif' : font;
   text(ctx, d.brand.name || 'Mi negocio', w * 0.08, h * 0.045, w * 0.84, h * 0.035, Math.min(25, h * 0.022), font, ink, true);
   text(ctx, d.product || d.title, w * 0.09, h * 0.095, w * 0.82, h * 0.08, Math.min(56, h * 0.05), displayFont, ink, true);
 
   const productX = w * 0.27; const productY = h * 0.22; const productW = w * 0.46; const productH = h * (d.format === 'story' || d.format === 'whatsapp' ? 0.38 : 0.47);
   cover(ctx, img, productX, productY, productW, productH, 'contain');
   const arrow = (x: number, y: number, targetX: number, targetY: number, right = false) => {
-    ctx.strokeStyle = '#A88D88'; ctx.lineWidth = Math.max(2, w * 0.002); ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo((x + targetX) / 2, y + (targetY - y) * 0.18, targetX, targetY); ctx.stroke();
+    ctx.strokeStyle = accent; ctx.lineWidth = Math.max(2, w * 0.002); ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo((x + targetX) / 2, y + (targetY - y) * 0.18, targetX, targetY); ctx.stroke();
     const angle = Math.atan2(targetY - y, targetX - x); const size = Math.max(9, w * 0.012);
-    ctx.beginPath(); ctx.moveTo(targetX, targetY); ctx.lineTo(targetX - size * Math.cos(angle - 0.5), targetY - size * Math.sin(angle - 0.5)); ctx.lineTo(targetX - size * Math.cos(angle + 0.5), targetY - size * Math.sin(angle + 0.5)); ctx.closePath(); ctx.fillStyle = '#A88D88'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(targetX, targetY); ctx.lineTo(targetX - size * Math.cos(angle - 0.5), targetY - size * Math.sin(angle - 0.5)); ctx.lineTo(targetX - size * Math.cos(angle + 0.5), targetY - size * Math.sin(angle + 0.5)); ctx.closePath(); ctx.fillStyle = accent; ctx.fill();
   };
   const note = (value: string, x: number, y: number, width: number, targetX: number, targetY: number, right = false) => {
     text(ctx, value, x, y, width, h * 0.12, Math.min(29, h * 0.026), displayFont, ink, true);
