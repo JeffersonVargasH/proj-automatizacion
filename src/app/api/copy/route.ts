@@ -12,7 +12,7 @@ async function ask(provider: Provider, messages: ReturnType<typeof copyMessages>
       body: JSON.stringify({
         model: provider.model,
         messages,
-        temperature: 0.9,
+        temperature: 0.7,
         max_completion_tokens: 3000,
         response_format: { type: 'json_schema', json_schema: { name: 'publication_copy', schema: copySchema, strict: true } },
         ...provider.extra,
