@@ -119,7 +119,7 @@
         "text": "=Create one concise marketing image prompt from the web request and the reference image analysis.\n\nBusiness: {{ $('Initialize Web Job').item.json.business }}\nProduct: {{ $('Initialize Web Job').item.json.product.name }}\nProduct description: {{ $('Initialize Web Job').item.json.product.description }}\nObjective: {{ $('Initialize Web Job').item.json.content.objective }}\nFormat: {{ $('Initialize Web Job').item.json.content.format }}\nStyle: {{ $('Initialize Web Job').item.json.content.style }}\nTone: {{ $('Initialize Web Job').item.json.content.tone }}\nUser instructions: {{ $('Initialize Web Job').item.json.content.instructions }}\n\nReference image analysis:\n{{ $json.content }}",
         "hasOutputParser": true,
         "options": {
-          "systemMessage": "=ROLE: UGC Image Prompt Builder  \n\nGOAL:  \nGenerate one concise, natural, and realistic image prompt (Ã¢â€°Â¤120 words) from a given product or reference image. The prompt must simulate authentic UGC (user-generated content) photography.  \n\nRULES:  \n- Always output **one JSON object only** with the key:  \n  - `image_prompt`: (string with full description)  \n- Do **not** add commentary, metadata, or extra keys. JSON only.  \n\nSTYLE GUIDELINES:  \n- Tone: casual, unstaged, lifelike, handheld snapshot.  \n- Camera cues: include at least 2Ã¢â‚¬â€œ3 (e.g., phone snapshot, handheld framing, off-center composition, natural indoor light, soft shadows, slight motion blur, auto exposure, unpolished look, mild grain).  \n- Realism: embrace imperfections (wrinkles, stray hairs, skin texture, clutter, smudges).  \n- Packaging/Text: preserve exactly as visible. Never invent claims, numbers, or badges.  \n- Diversity: if people appear but are unspecified, vary gender/ethnicity naturally; default age range = 21Ã¢â‚¬â€œ38.  \n- Setting: default to real-world everyday spaces (home, street, store, gym, office).  \n\nSAFETY:  \n- No copyrighted character names.  \n- No dialogue or scripts. Only describe scenes.  \n\nOUTPUT CONTRACT:  \n- JSON only, no prose outside.  \n- Max 120 words in `image_prompt`.  \n- Must cover: subject, action, mood, setting, style/camera, colors, and text accuracy.  \n\nCHECKLIST BEFORE OUTPUT:  \n- Natural handheld tone?  \n- At least 2 camera cues included?  \n- Product text preserved exactly?  \n- Only JSON returned?  \n\n---  \n\n### Example  \n\nGood Example :  \n```json\n{ \"image_prompt\": \"a young adult casually holding a skincare tube near a bathroom mirror; action: dabs small amount on the back of the hand; mood: easy morning; setting: small apartment bathroom with towel on rack and toothbrush cup; style/camera: phone snapshot, handheld framing, off-center composition, natural window light, slight motion blur, mild grain; colors: soft whites and mint label; text accuracy: keep every word on the tube exactly as visible, no added claims\" }\n"
+          "systemMessage": "=ROLE: High-End Product Photography Prompt Builder\\n\\nGOAL:\\nGenerate one concise, highly professional image prompt (≤120 words) from a given product/reference image. The prompt must simulate a premium, studio-quality product photoshoot or an elegant lifestyle setting.\\n\\nRULES:\\n- Always output **one JSON object only** with the key `image_prompt`.\\n- Do **not** add commentary. JSON only.\\n\\nSTYLE GUIDELINES:\\n- Tone: Premium, sophisticated, clean, professional, high-end.\\n- Lighting & Camera: Studio lighting, softboxes, dramatic shadows, macro details, depth of field, 85mm lens, 4k resolution, photorealistic.\\n- Setting: Minimalist studio backdrop, elegant podiums, natural elements (water splashes, leaves, stone textures), or a highly curated, pristine real-world setting.\\n- Packaging/Text: Preserve exactly as visible. \\n\\nOUTPUT CONTRACT:\\n- JSON only. Max 120 words."
         }
       },
       "id": "057d4d9c-6713-46c3-9b63-c3176c03cef9",
@@ -163,32 +163,20 @@
           "parameters": [
             {
               "parameterType": "formBinaryData",
-              "name": "image[]",
+              "name": "image",
               "inputDataFieldName": "reference"
             },
             {
               "name": "model",
-              "value": "gpt-image-2.5-flare"
+              "value": "dall-e-2"
             },
             {
               "name": "prompt",
-              "value": "={{ $('Generate Image Prompt').item.json.output.image_prompt + '\\n\\nFINAL SOCIAL GRAPHIC INSTRUCTION: Generate the complete finished social-media image yourself. Do not return a blank photo or a separate mockup. Compose the uploaded product as the visual centerpiece, with a polished editorial infographic layout similar to a beauty-product Instagram post: soft pastel background, decorative shapes, large readable typography, arrows or callouts, and all offer information integrated inside the same image. Reproduce the following copy EXACTLY, character by character. Do not paraphrase, translate, shorten, correct, or invent any text. Visible text: Brand: ' + ($('Initialize Web Job').item.json.business.name || 'Mi negocio') + '; Product: ' + ($('Initialize Web Job').item.json.product.name || '') + '; Title: ' + ($('Initialize Web Job').item.json.copy.title || '') + '; Description: ' + ($('Initialize Web Job').item.json.copy.body || '') + '; Price: ' + ($('Initialize Web Job').item.json.product.price || '') + '; Validity: ' + ($('Initialize Web Job').item.json.content.validity || '') + '; Call to action: ' + ($('Initialize Web Job').item.json.copy.cta || '') + '; Contact: ' + ($('Initialize Web Job').item.json.product.contact || $('Initialize Web Job').item.json.content.contact || '') + '. Preserve the exact product bottle, packaging, label, logo, colors, proportions, and existing packaging text. Add no other claims or text. The output itself must already contain the complete design and all the copy.' }}"
+              "value": "={{ $('Generate Image Prompt').item.json.output.image_prompt + '\\n\\nFINAL GRAPHIC INSTRUCTION: Generate a highly professional, visually stunning advertisement image. Compose the uploaded product as the hero element with perfect lighting and integration into the scene. Do not use cheap decorative shapes or cluttered infographic elements. Keep the aesthetic premium, clean, and modern. Seamlessly and elegantly integrate the following text into the composition using a high-end, minimalist typography style. Reproduce the copy EXACTLY: Title: ' + ($('Initialize Web Job').item.json.copy.title || '') + '; Description: ' + ($('Initialize Web Job').item.json.copy.body || '') + '; Price: ' + ($('Initialize Web Job').item.json.product.price || '') + '; Call to action: ' + ($('Initialize Web Job').item.json.copy.cta || '') + '; Contact: ' + ($('Initialize Web Job').item.json.product.contact || $('Initialize Web Job').item.json.content.contact || '') + '. Preserve the exact product appearance. The final result must look like a top-tier brand campaign.' }}"
             },
             {
               "name": "size",
               "value": "1024x1024"
-            },
-            {
-              "name": "quality",
-              "value": "low"
-            },
-            {
-              "name": "output_format",
-              "value": "jpeg"
-            },
-            {
-              "name": "output_compression",
-              "value": "80"
             },
             {
               "name": "n",

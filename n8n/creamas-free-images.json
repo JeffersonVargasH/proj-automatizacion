@@ -1,0 +1,151 @@
+{
+  "name": "CreaMás - Generación Gemini y HuggingFace",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "creamas-generate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "creamas-generate-hook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [ 160, 0 ],
+      "typeVersion": 2.1
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json.body ?? $json;\nconst requestId = String(input.requestId ?? input.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);\nconst product = input.product ?? {};\nconst images = Array.isArray(product.images) ? product.images : [];\nconst primaryImage = images[0] ?? '';\nconst dataUrlMatch = primaryImage.match(/^data:([^;]+);base64,(.+)$/s);\nconst state = $getWorkflowStaticData('global');\nstate.jobs ??= {};\nstate.jobs[requestId] = { status: 'processing', createdAt: new Date().toISOString() };\nconst item = { json: { ...input, ticket_id: requestId, status: 'processing', primaryImage } };\nif (dataUrlMatch) {\n  item.binary = { reference: { data: dataUrlMatch[2], mimeType: dataUrlMatch[1], fileName: 'reference.jpg' } };\n}\nreturn [item];"
+      },
+      "id": "creamas-init-job",
+      "name": "Initialize Job",
+      "type": "n8n-nodes-base.code",
+      "position": [ 360, 0 ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ticket_id: $json.ticket_id, status: $json.status }) }}",
+        "options": {}
+      },
+      "id": "creamas-respond-ticket",
+      "name": "Respond Ticket",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [ 560, 0 ],
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "key", "value": "={{ $env.GEMINI_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  contents: [{\n    parts: [\n      { text: \"Analyze this product image and the following details.\\nProduct: \" + $json.product.name + \"\\nDescription: \" + $json.product.description + \"\\n\\nTask: Write a highly detailed image-to-image prompt (max 100 words) describing the product in a premium, professional photography studio setting. Do not include text or graphic elements, just the photographic scene. Output ONLY the prompt text, nothing else.\" },\n      { inline_data: { mime_type: $('Initialize Job').first().binary.reference.mimeType, data: $('Initialize Job').first().binary.reference.data } }\n    ]\n  }]\n}) }}",
+        "options": {}
+      },
+      "id": "gemini-vision",
+      "name": "Gemini: Generate Prompt",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [ 760, 0 ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-inference.huggingface.co/models/timbrooks/instruct-pix2pix",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $env.HF_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "parameterType": "formBinaryData", "name": "image", "inputDataFieldName": "reference" },
+            { "name": "inputs", "value": "={{ $json.candidates[0].content.parts[0].text }}" }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "hf-edit",
+      "name": "HF: Edit Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [ 980, 0 ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const requestId = $('Initialize Job').first().json.ticket_id;\nconst state = $getWorkflowStaticData('global');\nstate.jobs ??= {};\nconst current = state.jobs[requestId] ?? {};\n\nconst binaryData = $input.first().binary?.data;\nlet finalUrl = null;\nif (binaryData) {\n  finalUrl = `data:${binaryData.mimeType};base64,${binaryData.data}`;\n}\n\nstate.jobs[requestId] = {\n  ...current,\n  status: finalUrl ? 'completed' : 'error',\n  finalUrl,\n  error: finalUrl ? null : 'No image returned.',\n  completedAt: new Date().toISOString(),\n};\nreturn [{ json: state.jobs[requestId] }];"
+      },
+      "id": "creamas-finalize-job",
+      "name": "Finalize Job",
+      "type": "n8n-nodes-base.code",
+      "position": [ 1200, 0 ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "status",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "creamas-status-hook",
+      "name": "Status Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [ 160, 260 ],
+      "typeVersion": 2.1
+    },
+    {
+      "parameters": {
+        "jsCode": "const ticketId = String($json.query?.ticket_id ?? $json.ticket_id ?? '');\nconst state = $getWorkflowStaticData('global');\nconst job = state.jobs?.[ticketId];\nreturn [{ json: job ? { ...job, ticket_id: ticketId } : { status: 'processing', ticket_id: ticketId } }];"
+      },
+      "id": "creamas-lookup-job",
+      "name": "Lookup Job",
+      "type": "n8n-nodes-base.code",
+      "position": [ 360, 260 ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "creamas-respond-status",
+      "name": "Respond Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [ 560, 260 ],
+      "typeVersion": 1.4
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [ [ { "node": "Initialize Job", "type": "main", "index": 0 } ] ] },
+    "Initialize Job": { "main": [ [ { "node": "Respond Ticket", "type": "main", "index": 0 } ] ] },
+    "Respond Ticket": { "main": [ [ { "node": "Gemini: Generate Prompt", "type": "main", "index": 0 } ] ] },
+    "Gemini: Generate Prompt": { "main": [ [ { "node": "HF: Edit Image", "type": "main", "index": 0 } ] ] },
+    "HF: Edit Image": { "main": [ [ { "node": "Finalize Job", "type": "main", "index": 0 } ] ] },
+    "Status Webhook": { "main": [ [ { "node": "Lookup Job", "type": "main", "index": 0 } ] ] },
+    "Lookup Job": { "main": [ [ { "node": "Respond Status", "type": "main", "index": 0 } ] ] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "gemini-hf-v1"
+}
