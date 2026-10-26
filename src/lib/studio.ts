@@ -14,14 +14,13 @@ export const networks = {
 } as const;
 export type Network = keyof typeof networks & Format;
 export const outputs = Object.keys(networks) as Network[];
-// Una intención reemplaza la doble elección de tipo y objetivo; ambos se siguen enviando en el contrato.
 export const intents = [
-  { label: 'Vender un producto', type: 'Publicación', objective: 'Vender' },
-  { label: 'Anunciar una novedad', type: 'Publicación', objective: 'Anunciar un producto' },
-  { label: 'Promocionar una oferta', type: 'Oferta', objective: 'Promocionar una oferta' },
-  { label: 'Invitar a un evento', type: 'Invitación', objective: 'Invitar a un evento' },
-  { label: 'Atraer visitas', type: 'Flyer', objective: 'Atraer visitas' },
-  { label: 'Informar', type: 'Flyer', objective: 'Informar' },
+  { label: 'Flyer publicitario', type: 'Flyer', objective: 'Atraer visitas', badge: 'Flyer', desc: 'Diseño publicitario para atraer clientes y visitas' },
+  { label: 'Promocionar una oferta', type: 'Oferta', objective: 'Promocionar una oferta', badge: 'Oferta', desc: 'Afiche promocional con precio destacado o descuento' },
+  { label: 'Anunciar una novedad', type: 'Flyer', objective: 'Anunciar un producto', badge: 'Flyer', desc: 'Lanzamiento de nuevo producto o llegada especial' },
+  { label: 'Vender un producto', type: 'Flyer', objective: 'Vender', badge: 'Flyer', desc: 'Diseño comercial enfocado en venta directa de catálogo' },
+  { label: 'Invitar a un evento', type: 'Invitación', objective: 'Invitar a un evento', badge: 'Evento', desc: 'Afiche con fecha, lugar y llamado a reservar' },
+  { label: 'Informar', type: 'Flyer', objective: 'Informar', badge: 'Flyer', desc: 'Flyer informativo con noticias o datos clave' },
 ] as const;
 export const tones = ['Cercano', 'Profesional', 'Juvenil', 'Elegante', 'Divertido'];
 export const styles = ['Moderno', 'Vibrante', 'Minimalista'];

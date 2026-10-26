@@ -186,7 +186,7 @@ export default function Studio({ currentUser, onLogout }: { currentUser?: AppUse
       mark({ status: 'sending', at: new Date().toISOString() });
       try {
         const generated = design.generation?.status === 'completed' ? design.generation.urls[network] : undefined;
-        const image = generated || (await renderDesign({ ...design, format: network })).toDataURL('image/png');
+        const image = (await renderDesign({ ...design, format: network }, generated)).toDataURL('image/png');
         const response = await fetch('/api/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(publishPayload(design, network, account.trim(), image)) });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || 'No se pudo publicar.');
