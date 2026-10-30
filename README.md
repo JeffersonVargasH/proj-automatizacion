@@ -4,7 +4,7 @@ Estudio de publicaciones para **pequeños emprendedores**: con la foto de su pro
 
 > **Resumen en 30 segundos.** El emprendedor configura su negocio **una sola vez** (logo, colores, tono, hashtags y redes). Para cada publicación solo elige **qué quiere lograr**, sube **de una a tres fotos** y revisa: Clic propone el diseño con sus colores y un texto distinto para cada red, escrito por IA sin inventar datos. Todo queda guardado en **Mis publicaciones**, desde donde puede editar, descargar las tres imágenes o publicarlas.
 >
-> **Resumen técnico.** Aplicación Next.js 16 / React 19 / TypeScript con Material UI. El estudio funciona **en el navegador** (datos en IndexedDB, imágenes renderizadas con Canvas). Cuatro rutas del servidor hacen de puente: generación de imágenes y publicación en redes vía **webhooks de n8n**, y redacción de textos vía **Groq** (GPT-OSS, plan gratuito) con **Grok de xAI** como respaldo. Ninguna clave llega al navegador.
+> **Resumen técnico.** Aplicación Next.js 16 / React 19 / TypeScript con Material UI. Cuentas, datos e imágenes en **Supabase** (Auth, Postgres con RLS y Storage); el diseño se renderiza con Canvas en el navegador. Las rutas del servidor exigen sesión y hacen de puente: generación de imágenes y publicación en redes vía **webhooks de n8n**, y redacción de textos vía **Groq** (GPT-OSS, plan gratuito) con **Grok de xAI** como respaldo. Ninguna clave llega al navegador.
 
 <p align="center">
   <img src="docs/capturas/08-editor-facebook.png" alt="Editor de Clic con la versión de Facebook de una publicación" width="640">
@@ -25,7 +25,7 @@ Estudio de publicaciones para **pequeños emprendedores**: con la foto de su pro
 5. [Guía de orientación: dónde está cada cosa](#5-guía-de-orientación-dónde-está-cada-cosa)
 6. [Arquitectura](#6-arquitectura)
 7. [Frontend](#7-frontend)
-8. [Autenticación (local, de demostración)](#8-autenticación-local-de-demostración)
+8. [Autenticación (Supabase Auth)](#8-autenticación-supabase-auth)
 9. [Modelo de datos y almacenamiento](#9-modelo-de-datos-y-almacenamiento)
 10. [Máquinas de estado](#10-máquinas-de-estado)
 11. [Flujos de extremo a extremo](#11-flujos-de-extremo-a-extremo)
@@ -67,7 +67,7 @@ Estudio de publicaciones para **pequeños emprendedores**: con la foto de su pro
 | | |
 |---|---|
 | <img src="docs/capturas/01-login.png" alt="Inicio de sesión" width="380"> | <img src="docs/capturas/02-inicio.png" alt="Inicio" width="380"> |
-| **Inicio de sesión.** Correo y contraseña (cuentas locales de demostración, ver [sección 8](#8-autenticación-local-de-demostración)). | **Inicio.** Lo pendiente va primero (configurar el negocio o retomar lo que quedó a medias), el acceso a crear y las últimas publicaciones. |
+| **Inicio de sesión.** Correo y contraseña con Supabase Auth; también registro y recuperación de contraseña (ver [sección 8](#8-autenticación-supabase-auth)). | **Inicio.** Lo pendiente va primero (configurar el negocio o retomar lo que quedó a medias), el acceso a crear y las últimas publicaciones. |
 | <img src="docs/capturas/12-mi-negocio-preferencias.png" alt="Preferencias de publicación" width="380"> | <img src="docs/capturas/13-redes-conectadas.png" alt="Redes conectadas" width="380"> |
 | **Mi negocio · Preferencias.** Estilo visual (pintado con los colores de la marca), tono, hashtags e indicaciones fijas para el generador. | **Mi negocio · Redes conectadas.** Cuenta de cada red y si se publica automáticamente al terminar la generación. |
 | <img src="docs/capturas/03-crear-intencion.png" alt="Paso 1: intención" width="380"> | <img src="docs/capturas/04-crear-producto.png" alt="Paso 2: producto" width="380"> |
@@ -94,11 +94,9 @@ En el celular la interfaz se adapta a una columna y el menú pasa a un cajón la
 | Rol | Rol técnico (`AppUser.role`) | Puede |
 |---|---|---|
 | **Emprendedor** | `entrepreneur` | Configurar su negocio, crear, editar, descargar, compartir y publicar sus publicaciones. Solo ve sus propios datos. |
-| **Administrador** | `admin` | Crear cuentas de emprendedores (una a una o importando CSV `nombre,correo,negocio`) y abrir el estudio como cualquier usuario. |
+| **Administrador** | `admin` | Invitar emprendedores por correo (uno a uno o en bloque `nombre,correo,negocio`), cambiar roles, suspender y reactivar cuentas, ver la auditoría y abrir su propio estudio. |
 
-Los datos de cada usuario se guardan **separados por su id** dentro del navegador (`storage.setScope(user.id)`), de modo que dos cuentas en el mismo equipo no comparten negocio ni publicaciones.
-
-> ⚠️ Hoy las cuentas y la sesión viven en el navegador: sirven para validar el flujo, no protegen datos. Ver [sección 8](#8-autenticación-local-de-demostración) y [19](#19-seguridad-y-datos).
+Cada usuario puede tener **varios negocios**; cada negocio guarda su marca y sus publicaciones. Las políticas RLS de Postgres garantizan que nadie lea ni edite datos ajenos. Ver [sección 8](#8-autenticación-supabase-auth) y [9.3](#93-seguridad).
 
 ---
 
@@ -129,7 +127,10 @@ Los datos de cada usuario se guardan **separados por su id** dentro del navegado
 
 | Quiero… | Mira en… |
 |---|---|
-| Entender cómo entra un usuario | `src/components/auth/AuthGate.tsx`, `src/lib/auth.ts` → [sección 8](#8-autenticación-local-de-demostración) |
+| Entender cómo entra un usuario | `src/components/auth/AuthGate.tsx`, `AuthScreens.tsx`, `src/lib/auth.ts` → [sección 8](#8-autenticación-supabase-auth) |
+| Cambiar tablas, permisos o RLS | `supabase/migrations/20261029000000_base.sql` → [sección 9](#9-modelo-de-datos-y-almacenamiento) |
+| Proteger una ruta `/api` nueva | `requireUser()` y `audit()` en `src/lib/supabase/server.ts`; límites en `src/lib/rate-limit.ts` |
+| Cambiar el panel de administración | `src/components/admin/AdminPanel.tsx` y `src/app/api/admin/users/route.ts` |
 | Cambiar el menú o añadir una vista | `src/components/studio/Studio.tsx` (`View`, `nav`) |
 | Cambiar los pasos de *Crear publicación* | `src/components/studio/CreateFlow.tsx` (`steps`, `titles`, `descriptions`) |
 | Cambiar qué se guarda de cada publicación | Tipo `Design` y `newDesign()` en `src/lib/studio.ts` |
@@ -143,7 +144,7 @@ Los datos de cada usuario se guardan **separados por su id** dentro del navegado
 | Cambiar campos reutilizables (fotos, selector de estilo…) | `src/components/studio/Fields.tsx` |
 | Cambiar el polling de la generación | `src/hooks/usePolling.ts` |
 | Cambiar el tema visual (colores, tipografías de MUI) | `src/theme.ts` |
-| Probar la lógica | `tests/studio.test.cjs`, `tests/copy.test.cjs` (`npm test`) |
+| Probar la lógica | `tests/studio.test.cjs`, `tests/copy.test.cjs`, `tests/security.test.cjs` (`npm test`) |
 
 ### 5.2 Mapa del repositorio
 
@@ -154,16 +155,21 @@ proj-automatizacion/
 │  │  ├─ layout.tsx               Metadatos, proveedor de caché de MUI y tema
 │  │  ├─ page.tsx                 Única página: renderiza AuthGate
 │  │  ├─ globals.css              Estilos globales (Tailwind importado)
-│  │  └─ api/                     Rutas del servidor (Route Handlers)
+│  │  ├─ auth/callback/route.ts   Enlaces de correo de Supabase (confirmar, invitar, recuperar)
+│  │  └─ api/                     Rutas del servidor (todas exigen sesión)
+│  │     ├─ admin/users/route.ts        GET/POST/PATCH → cuentas (solo admin)
 │  │     ├─ generate/route.ts           POST → webhook n8n de generación
 │  │     ├─ generate/status/route.ts    GET  → webhook n8n de estado
 │  │     ├─ copy/route.ts               POST → Groq / Grok (textos con IA)
-│  │     ├─ publish/route.ts            POST → webhook n8n de publicación
-│  │     └─ upload/route.ts             (heredada, sin uso) URL firmada S3
+│  │     └─ publish/route.ts            POST → webhook n8n de publicación
+│  ├─ proxy.ts                    Renueva la sesión de Supabase en cada petición
 │  ├─ components/
-│  │  ├─ auth/AuthGate.tsx        Login, panel de administración y reparto por rol
+│  │  ├─ auth/AuthGate.tsx        Sesión, perfil, negocios y reparto por rol
+│  │  ├─ auth/AuthScreens.tsx     Ingresar, registrarse, recuperar y elegir contraseña
+│  │  ├─ admin/AdminPanel.tsx     Invitaciones, roles, suspensión y auditoría
 │  │  ├─ studio/
 │  │  │  ├─ Studio.tsx            Contenedor: menú, vistas, guardado, generación y publicación
+│  │  │  ├─ AccountView.tsx       Mi cuenta: nombre, contraseña, negocios, actividad
 │  │  │  ├─ CreateFlow.tsx        Crear publicación en 3 pasos
 │  │  │  ├─ Editor.tsx            Editor por red, descargas, publicación
 │  │  │  ├─ BrandForm.tsx         Mi negocio: identidad, contacto, preferencias, redes
@@ -176,11 +182,14 @@ proj-automatizacion/
 │  │  ├─ studio.ts                Modelo de datos, reglas y contratos (fuente de verdad)
 │  │  ├─ copy.ts                  Proveedores de IA, prompt y validación de textos
 │  │  ├─ studio-renderer.ts       Render de la maqueta en Canvas, descargas
-│  │  ├─ studio-storage.ts        IndexedDB por usuario y lectura de fotos
-│  │  ├─ auth.ts                  Cuentas y sesión locales (demostración)
-│  │  └─ s3.ts                    (heredado) cliente DigitalOcean Spaces
+│  │  ├─ studio-storage.ts        Negocio y publicaciones en Supabase, borrador en IndexedDB
+│  │  ├─ media.ts                 data URL ↔ referencia de Storage ↔ URL firmada
+│  │  ├─ auth.ts                  Perfil, negocios, auditoría y mensajes de Auth
+│  │  ├─ rate-limit.ts            Límite de peticiones por usuario
+│  │  └─ supabase/                Clientes de navegador, servidor y service role
 │  ├─ store/useWizardStore.ts     (heredado, sin uso)
 │  └─ theme.ts                    Paleta y tipografía
+├─ supabase/migrations/           Esquema, RLS, triggers y Storage
 ├─ n8n/                           Workflows importables de generación de imágenes
 ├─ tests/                         Pruebas con node:test sobre src/lib
 ├─ docs/capturas/                 Capturas usadas en este README
@@ -192,12 +201,14 @@ proj-automatizacion/
 
 | Pantalla | Datos y servicios |
 |---|---|
-| Inicio de sesión / Administración | `localStorage` (`clic-local-users-v1`, `clic-local-session-v1`) |
-| Inicio | IndexedDB: `brand`, `draft`, `history` |
-| Mi negocio | IndexedDB: `brand` |
-| Crear publicación | IndexedDB: `draft`; `POST /api/copy`; al crear, `POST /api/generate` |
-| Editor | IndexedDB: `draft` y `history`; Canvas; `GET /api/generate/status`; `POST /api/copy`; `POST /api/publish` |
-| Mis publicaciones | IndexedDB: `history` |
+| Inicio de sesión | Supabase Auth; `/auth/callback` para los enlaces de correo |
+| Administración | `GET/POST/PATCH /api/admin/users`; `activity_log` |
+| Inicio | `businesses`, `publications`; IndexedDB: `draft` |
+| Mi negocio | `businesses.brand`; logo en Storage |
+| Mi cuenta | `profiles`, `businesses`, `activity_log`; Supabase Auth (contraseña) |
+| Crear publicación | IndexedDB: `draft`; `POST /api/copy`; al crear, `publications` y `POST /api/generate` |
+| Editor | IndexedDB: `draft`; `publications`; Storage; Canvas; `GET /api/generate/status`; `POST /api/copy`; `POST /api/publish` |
+| Mis publicaciones | `publications`; imágenes con URLs firmadas de Storage |
 
 ---
 
@@ -220,7 +231,9 @@ flowchart TB
   meta["Meta<br/>Instagram, Facebook, WhatsApp Business"]
 
   emp -->|"configura, crea, edita y publica"| app
-  adm -->|"crea cuentas"| app
+  adm -->|"invita y administra cuentas"| app
+  sb["Supabase<br/>Auth, Postgres, Storage"]
+  app <-->|"cuentas, datos, imágenes"| sb
   app -->|"textos por red"| llm
   app -->|"generar y publicar"| n8n
   n8n --> img
@@ -234,14 +247,21 @@ flowchart LR
   subgraph NAV["Navegador"]
     UI["React 19 + MUI<br/>AuthGate, Studio, CreateFlow, Editor"]
     CV["Canvas<br/>maqueta de cada red"]
-    IDB[("IndexedDB<br/>brand, draft, history")]
-    LS[("localStorage<br/>cuentas y sesión demo")]
+    IDB[("IndexedDB<br/>borrador")]
   end
 
-  subgraph NEXT["Next.js 16 · rutas del servidor"]
+  subgraph NEXT["Next.js 16 · rutas del servidor (requireUser)"]
+    PX["proxy.ts<br/>renueva la sesión"]
     GEN["/api/generate<br/>/api/generate/status"]
     COPY["/api/copy"]
     PUB["/api/publish"]
+    ADMR["/api/admin/users"]
+  end
+
+  subgraph SB["Supabase"]
+    AUTH["Auth"]
+    PG[("Postgres + RLS<br/>profiles, businesses,<br/>publications, activity_log")]
+    STO[("Storage<br/>bucket media privado")]
   end
 
   N8N["n8n<br/>webhooks"]
@@ -250,7 +270,11 @@ flowchart LR
 
   UI --> CV
   UI <--> IDB
-  UI <--> LS
+  UI <-->|"sesión en cookies"| AUTH
+  UI <-->|"clave pública + RLS"| PG
+  UI <-->|"URLs firmadas"| STO
+  NEXT -->|"valida token y propiedad"| PG
+  ADMR -->|"service role"| AUTH
   UI -->|"generationPayload"| GEN
   UI -->|"copyRequest, sin fotos"| COPY
   UI -->|"publishPayload por red"| PUB
@@ -264,9 +288,10 @@ flowchart LR
 
 | Camino | Qué pasa por ahí | Quién guarda el secreto |
 |---|---|---|
-| Navegador ↔ IndexedDB / localStorage | Negocio, borrador, historial, cuentas de demostración | — (datos locales del navegador) |
+| Navegador ↔ Supabase (Auth, Postgres, Storage) | Sesión, perfil, negocios, publicaciones e imágenes; RLS filtra por usuario | Clave pública en el navegador; `SUPABASE_SERVICE_ROLE_KEY` solo en el servidor |
+| Navegador ↔ IndexedDB | Borrador en curso | — (dispositivo) |
 | Navegador → `/api/copy` → Groq / xAI | Datos del producto y del negocio, sin fotos | `GROQ_API_KEY`, `XAI_API_KEY` en el servidor |
-| Navegador → `/api/generate` → n8n | Diseño completo con fotos (hoy como data URL) | `N8N_WEBHOOK_TOKEN` en el servidor |
+| Navegador → `/api/generate` → n8n | Diseño completo; fotos guardadas como URLs firmadas | `N8N_WEBHOOK_TOKEN` en el servidor |
 | Navegador → `/api/publish` → n8n → Meta | Una imagen y su texto por red | Token de n8n en el servidor; credenciales de Meta **solo en n8n** |
 
 ### 6.3 Ejecución actual (local)
@@ -276,6 +301,7 @@ flowchart LR
   dev["npm run dev<br/>localhost:3000"] --> app["Next.js<br/>.next-studio/"]
   env[".env.local<br/>ignorado por git"] -.-> app
   app -->|"webhooks"| dock["n8n en Docker<br/>localhost:5678"]
+  app -->|"HTTPS"| sb["Supabase<br/>proyecto en la nube"]
   app -->|"HTTPS"| groq["api.groq.com"]
   app -.->|"HTTPS, respaldo"| xai["api.x.ai"]
 ```
@@ -291,12 +317,14 @@ No hay despliegue de producción todavía. La compilación usa `distDir: '.next-
 ```mermaid
 flowchart TD
   L["layout.tsx<br/>tema MUI"] --> P["page.tsx"] --> AG["AuthGate"]
-  AG -->|"sin sesión"| LOGIN["LoginScreen"]
-  AG -->|"role = admin"| ADM["AdminUsers"]
-  ADM -->|"Abrir estudio"| ST
-  AG -->|"role = entrepreneur"| ST["Studio"]
+  AG -->|"sin sesión"| LOGIN["AuthScreen<br/>ingresar, registrarse, recuperar"]
+  AG -->|"enlace de recuperación o invitación"| RESET["ResetPasswordScreen"]
+  AG -->|"role = admin"| ADM["AdminPanel"]
+  ADM -->|"Abrir mi estudio"| ST
+  AG -->|"role = entrepreneur<br/>key = negocio activo"| ST["Studio"]
 
-  ST --> NAVM["Menú: Inicio, Crear, Mis publicaciones, Mi negocio"]
+  ST --> NAVM["Menú: Inicio, Crear, Mis publicaciones, Mi negocio, Mi cuenta<br/>selector de negocio"]
+  ST --> AC["AccountView"]
   ST --> HV["HomeView"]
   ST --> BF["BrandForm"]
   ST --> CF["CreateFlow<br/>Intención, Producto, Revisión"]
@@ -330,142 +358,150 @@ flowchart TD
 
 ---
 
-## 8. Autenticación (local, de demostración)
+## 8. Autenticación (Supabase Auth)
 
 ```mermaid
 sequenceDiagram
   autonumber
   participant U as Usuario
   participant AG as AuthGate
-  participant LS as localStorage
-  participant IDB as IndexedDB
+  participant SA as Supabase Auth
+  participant DB as Postgres (RLS)
 
-  U->>AG: correo y contraseña
-  AG->>LS: busca en clic-local-users-v1
-  alt credenciales válidas
-    AG->>LS: guarda clic-local-session-v1
-    AG->>IDB: storage.setScope(user.id)
-    alt role = admin
-      AG->>U: Panel de administración
-    else role = entrepreneur
-      AG->>U: Estudio
-    end
-  else inválidas
-    AG->>U: "Correo o contraseña incorrectos."
+  alt Registro
+    U->>AG: nombre, negocio, correo, contraseña
+    AG->>SA: signUp (metadatos full_name y business)
+    SA->>DB: trigger handle_new_user → profiles + primer negocio
+    SA-->>U: correo de confirmación → /auth/callback
+  else Inicio de sesión
+    U->>AG: correo y contraseña
+    AG->>SA: signInWithPassword
+    AG->>DB: log_activity('login')
+  else Olvidé mi contraseña
+    U->>AG: correo
+    AG->>SA: resetPasswordForEmail
+    SA-->>U: enlace → /auth/callback → /?mode=reset → nueva contraseña
+  end
+  AG->>DB: perfil (rol, estado) y negocios
+  alt suspendida
+    AG->>U: "Cuenta suspendida"
+  else role = admin
+    AG->>U: Panel de administración
+  else
+    AG->>U: Estudio del último negocio abierto
   end
 ```
 
-- Las cuentas de demostración (`admin@clic.local`, `empresario@clic.local`) están en `demoAccounts` de `src/lib/auth.ts` y se siembran en `localStorage` la primera vez.
-- Las cuentas creadas por el administrador reciben la contraseña temporal `Bienvenido123!` (pensada para reemplazarse por un enlace seguro enviado desde n8n).
-- **No es autenticación real**: contraseñas en texto plano y sesión en el navegador. Ver [deuda técnica](#203-deuda-técnica-y-comportamientos-conocidos).
+| Pieza | Archivo | Qué hace |
+|---|---|---|
+| Pantallas de acceso | `src/components/auth/AuthScreens.tsx` | Ingresar, registrarse, recuperar contraseña y elegir contraseña (recuperación e invitación). |
+| Puerta de entrada | `src/components/auth/AuthGate.tsx` | Lee la sesión, el perfil y los negocios; decide qué pantalla mostrar. |
+| Enlaces de correo | `src/app/auth/callback/route.ts` | Canjea `token_hash` o `code` por una sesión. Solo redirige a rutas internas. |
+| Renovación de sesión | `src/proxy.ts` | Refresca el token en cada petición (en Next 16, `proxy` reemplaza a `middleware`). |
+| Clientes | `src/lib/supabase/{client,server,env}.ts` | Navegador (cookies), servidor y `service role` (solo servidor). |
+| Guardia de API | `requireUser()` en `server.ts` | Valida el token con Supabase (`getUser`), exige cuenta activa y, si se pide, rol admin. |
 
----
+- **Contraseñas**: mínimo 8 caracteres, con letras y números (`passwordProblem`). Supabase las guarda con hash; la app nunca las ve en texto plano.
+- **Invitaciones**: el administrador invita desde el panel (`POST /api/admin/users`). La persona recibe un correo, entra a `/?mode=welcome` y elige su contraseña. Ya no hay contraseñas temporales.
+- **Suspensión**: `PATCH /api/admin/users` marca el perfil como `suspended` **y** banea el usuario en Auth. RLS deja de devolverle datos aunque su token siga vigente unos minutos.
 
 ## 9. Modelo de datos y almacenamiento
 
-### 9.1 Modelo
+### 9.1 Base de datos (Postgres en Supabase)
+
+El esquema completo está en `supabase/migrations/20261029000000_base.sql`.
 
 ```mermaid
-classDiagram
-  class AppUser {
-    id
-    name
-    email
-    business
-    role: admin | entrepreneur
-    status: active | pending
-  }
-  class Brand {
-    name
-    logo: data URL
-    primary: color
-    secondary: color
-    phone
-    instagram
-    facebook
-    address
-  }
-  class Preferences {
-    tone
-    style
-    hashtags
-    instructions
-  }
-  class Connection {
-    enabled
-    account
-  }
-  class Design {
-    id
-    createdAt
-    updatedAt
-    type
-    objective
-    product
-    description
-    price
-    validity
-    contact
-    images: data URL x3
-    format: red activa
-    style, tone, instructions
-    title, body, cta
-    caption, hashtags
-    color, background, font
-    posiciones y tamaños
-    requests
-    schedule
-  }
-  class Generation {
-    status: processing | completed | error
-    ticketId
-    urls por red
-    error
-  }
-  class Publication {
-    status: sending | sent | error
-    at
-    error
-  }
+erDiagram
+  auth_users ||--|| profiles : "trigger al registrarse"
+  profiles ||--o{ businesses : "owner_id"
+  profiles ||--o{ publications : "owner_id"
+  businesses ||--o{ publications : "business_id"
+  profiles ||--o{ activity_log : "actor_id"
 
-  AppUser "1" --> "1" Brand : guarda
-  Brand "1" *-- "1" Preferences
-  Brand "1" *-- "3" Connection : instagram, facebook, whatsapp
-  AppUser "1" --> "0..*" Design : historial
-  Design "1" *-- "1" Brand : copia al crear
-  Design "1" *-- "0..1" Generation
-  Design "1" *-- "0..3" Publication : por red
-  Design "1" *-- "0..3" Caption : texto por red
+  profiles {
+    uuid id PK
+    text email
+    text full_name
+    app_role role "admin | entrepreneur"
+    account_status status "active | suspended"
+  }
+  businesses {
+    uuid id PK
+    uuid owner_id FK
+    text name
+    jsonb brand "colores, contacto, preferencias, redes"
+  }
+  publications {
+    uuid id PK "mismo id que Design.id"
+    uuid business_id FK
+    uuid owner_id FK
+    text title
+    text status "draft | processing | generated | published | error"
+    jsonb design "Design con referencias a Storage"
+  }
+  activity_log {
+    bigint id PK
+    uuid actor_id FK
+    text action
+    text entity
+    text entity_id
+    jsonb details
+  }
 ```
 
-| Tipo | Archivo | Notas |
-|---|---|---|
-| `Brand`, `Preferences`, `Connection` | `src/lib/studio.ts` | `normalizeBrand()` completa perfiles guardados antes de existir preferencias y conexiones. |
-| `Design` | `src/lib/studio.ts` | Guarda una **copia** de la marca al crearse: cambiar el negocio después no altera publicaciones existentes. |
-| `captions` | `Design.captions` | Texto por red; `captionFor(d, red)` usa `caption` si falta. `caption` conserva el de Instagram por compatibilidad. |
-| `Generation`, `Publication` | `Design.generation`, `Design.publications` | Estado de la IA de imágenes y de cada red. `duplicateDesign()` los reinicia. |
-| `Copy` | `src/lib/copy.ts` | Resultado validado de la IA de texto. |
+- **Varios negocios por usuario**: cada negocio tiene su marca y sus publicaciones. Se cambia desde el pie del menú lateral; el último abierto se recuerda por usuario.
+- `Design` se guarda entero en `publications.design`; `title` y `status` se copian a columnas para listar y filtrar sin abrir el JSON.
+- Los tipos `Brand`, `Design`, `Generation` y `Publication` siguen en `src/lib/studio.ts`.
 
-### 9.2 Almacenamiento en el navegador
+### 9.2 Imágenes (Supabase Storage)
 
 ```mermaid
 flowchart LR
-  subgraph IDB["IndexedDB · base impulsa-studio · almacén records"]
-    b["userId:brand"]
-    d["userId:draft"]
-    h["userId:history  (Design[])"]
-  end
-  subgraph LS["localStorage"]
-    u["clic-local-users-v1"]
-    s["clic-local-session-v1"]
-    old["impulsa-design-history<br/>(heredado, se migra una vez)"]
-  end
-  old -.->|"migración al cargar"| h
+  photo["Foto o logo<br/>(data URL en el editor)"] -->|"al guardar: sha-256"| up["Storage · bucket media (privado)<br/>usuario/negocio/hash.ext"]
+  up --> ref["clic-media://ruta<br/>(lo que se guarda en la base)"]
+  ref -->|"al cargar"| signed["URL firmada · 7 días"]
+  signed -->|"al volver a guardar"| ref
+  signed -->|"al publicar · 24 h"| meta["n8n / Meta descargan la imagen"]
 ```
 
-- IndexedDB se usa porque las fotos (data URL) superan el límite de `localStorage`.
-- Si el navegador bloquea el almacenamiento, la app avisa y permite seguir editando sin guardar.
-- Nada se sincroniza entre dispositivos.
+- `src/lib/studio-storage.ts` mantiene la misma interfaz que antes (`storage.get/put` de `brand`, `draft` y `history`), pero `brand` e `history` van a Supabase y solo se suben las publicaciones que cambiaron.
+- El **borrador en curso** sigue en IndexedDB del dispositivo (se guarda cada 350 ms y aguanta cortes de red). Al abrirlo se vuelven a firmar sus imágenes.
+- Una imagen idéntica no se sube dos veces: la ruta es el hash del contenido.
+- La conversión entre data URL, referencia y URL firmada está en `src/lib/media.ts` y tiene pruebas.
+
+### 9.3 Seguridad
+
+| Capa | Qué protege |
+|---|---|
+| RLS en las 4 tablas | Cada usuario ve y edita solo lo suyo; el admin puede leer todo. `anon` no tiene acceso. |
+| `is_active()` en las políticas | Una cuenta suspendida no lee ni escribe nada. |
+| Trigger `protect_profile` | Un usuario no puede cambiarse el rol, el estado ni el correo. |
+| Políticas de Storage | Solo se sube y se lee dentro de la carpeta `<tu-id>/`. Solo PNG, JPG y WebP, máximo 10 MB. |
+| `requireUser()` en `/api/*` | Sin sesión válida: 401. Suspendida: 403. Admin: 403 si no lo es. |
+| Propiedad en `/api/generate` y `/api/publish` | La publicación debe existir y ser del usuario (consulta con RLS). |
+| Límite por usuario (`src/lib/rate-limit.ts`) | Textos 30, generaciones 10 y publicaciones 30 cada 10 min; invitaciones 200 por hora. |
+| Auditoría (`activity_log`) | Triggers registran altas, bajas, cambios de estado y de rol; la app registra inicio de sesión, generación y publicación. Nadie puede escribirla ni borrarla desde el cliente. |
+| Cabeceras HTTP | `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, HSTS (`next.config.mjs`). |
+| Secretos | `SUPABASE_SERVICE_ROLE_KEY`, claves de IA y token de n8n viven solo en el servidor. |
+
+Se eliminó `/api/upload`, que firmaba subidas públicas a DigitalOcean Spaces sin pedir sesión.
+
+### 9.4 Puesta en marcha de Supabase
+
+1. Crea un proyecto en [supabase.com](https://supabase.com) y abre **SQL Editor**. Pega y ejecuta `supabase/migrations/20261029000000_base.sql`.
+2. En **Project Settings → API** copia la URL, la `anon`/publishable key y la `service_role` key a `.env.local` (ver `.env.example`).
+3. En **Authentication → URL Configuration** pon como *Site URL* la dirección de la app (en local, `http://localhost:3005`) y agrega `http://localhost:3005/auth/callback` a *Redirect URLs*.
+4. En **Authentication → Email Templates** cambia el enlace de cada plantilla para que funcione aunque se abra en otro navegador:
+   - Confirm signup: `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=signup`
+   - Invite user: `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite`
+   - Reset password: `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery`
+5. Regístrate en la app y conviértete en administrador desde el SQL Editor:
+   `update public.profiles set role = 'admin' where email = 'tu-correo@ejemplo.com';`
+6. Para producción, configura un SMTP propio en **Authentication → SMTP**: el correo incluido de Supabase envía muy pocos mensajes por hora.
+7. Comprueba la seguridad contra el proyecto real con `npm run check:rls`: crea dos cuentas temporales, intenta 21 accesos indebidos (datos, Storage, auditoría, rol de admin, cuenta suspendida) y las borra al terminar.
+
+Para probar la app sin enviar correos, `node scripts/test-user.mjs create [admin]` crea una cuenta ya confirmada (sus datos quedan en `.env.test.local`, ignorado por git) y `node scripts/test-user.mjs delete` la borra con todo lo suyo.
 
 ---
 
@@ -737,9 +773,15 @@ Cuerpo (`publishPayload`), una llamada por red; se reenvía a `N8N_PUBLISH_WEBHO
 | `400` | Red inválida o falta `requestId`, `image` o `account` |
 | `502` | n8n no responde, responde error o `{ "status": "error" }` |
 
-### 13.5 `POST /api/upload` *(heredada)*
+### 13.5 `/api/admin/users` — cuentas (solo administradores)
 
-Genera una URL firmada para subir a DigitalOcean Spaces (`DO_SPACES_*`). El flujo actual no la usa; queda como base para dejar de enviar fotos como data URL.
+| Método | Cuerpo | Hace |
+|---|---|---|
+| `GET` | — | Lista perfiles con su número de negocios y publicaciones. |
+| `POST` | `{ users: [{ name, email, business }] }` (máx. 200) | Envía invitaciones por correo. Responde `{ invited, skipped }`. |
+| `PATCH` | `{ id, role?, status? }` | Cambia el rol o suspende/reactiva (también banea en Auth). No permite cambiarse a uno mismo. |
+
+**Todas las rutas `/api`** responden `401` sin sesión, `403` si la cuenta está suspendida (o no es admin en esta ruta) y `429` al superar el límite por usuario. `/api/generate` y `/api/publish` además responden `404` si la publicación no es del usuario, y envían a n8n `owner: { userId, businessId }`.
 
 ---
 
@@ -776,6 +818,9 @@ Copia `.env.example` como `.env.local` (ignorado por git) y reinicia `npm run de
 
 | Variable | Obligatoria | Para qué |
 |---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | **sí** | URL del proyecto de Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **sí** | Clave pública (`anon` o *publishable*); RLS decide qué puede ver |
+| `SUPABASE_SERVICE_ROLE_KEY` | para el panel admin | Invitar y suspender cuentas. Solo servidor: nunca con prefijo `NEXT_PUBLIC_` |
 | `GROQ_API_KEY` | recomendada | Textos con IA (plan gratuito) |
 | `GROQ_MODEL` | no | Por defecto `openai/gpt-oss-120b`; `openai/gpt-oss-20b` es más rápido |
 | `XAI_API_KEY` | no | Textos con Grok como respaldo |
@@ -786,9 +831,8 @@ Copia `.env.example` como `.env.local` (ignorado por git) y reinicia `npm run de
 | `N8N_STATUS_WEBHOOK_URL` | para imágenes | Por defecto `http://localhost:5678/webhook/status` |
 | `N8N_PUBLISH_WEBHOOK_URL` | para publicar | Por defecto `http://localhost:5678/webhook/creamas-publish` |
 | `N8N_WEBHOOK_TOKEN` | recomendada | Se envía como `x-creamas-token`; n8n debe validarlo |
-| `DO_SPACES_*` | no | Solo para la ruta heredada `/api/upload` |
 
-> Sin ninguna variable la app funciona igual: textos con plantillas, maqueta local en lugar de imagen con IA y publicación desactivada.
+> Sin Supabase la app muestra una pantalla de "Falta configurar Supabase" (ver [9.4](#94-puesta-en-marcha-de-supabase)). Sin las demás variables funciona igual: textos con plantillas, maqueta en lugar de imagen con IA y publicación desactivada.
 
 ---
 
@@ -895,15 +939,18 @@ node --test tests/studio.test.cjs tests/copy.test.cjs
 | **Credenciales de Meta solo en n8n** | La app solo guarda el nombre de la cuenta y si la publicación es automática. |
 | **Token compartido con n8n** | `x-creamas-token` en cada webhook (n8n debe validarlo). |
 | **Validación de la IA** | La respuesta del modelo se valida contra un esquema JSON estricto y se recorta antes de mostrarse. |
-| **Datos separados por usuario** | Las claves de IndexedDB llevan el id del usuario. |
+| **Autenticación real** | Supabase Auth: contraseñas con hash, confirmación por correo, recuperación e invitaciones. |
+| **Datos separados por usuario** | RLS en Postgres y en Storage; cuentas suspendidas sin acceso. Detalle en [9.3](#93-seguridad). |
+| **Rutas `/api` protegidas** | Sesión obligatoria, propiedad de la publicación y límite por usuario. |
+| **Auditoría** | `activity_log`, de solo lectura para el cliente. |
 
 ### 19.2 Riesgos conocidos
 
 | Riesgo | Situación | Mitigación propuesta |
 |---|---|---|
-| **Autenticación de demostración** | Cuentas y contraseñas en `localStorage`, en texto plano; la sesión se puede editar desde el navegador. | Autenticación real en servidor (por ejemplo Supabase Auth o NextAuth) antes de usar datos reales. |
-| **Rutas `/api` sin sesión** | Cualquiera que llegue al servidor puede llamar a `/api/copy`, `/api/generate` o `/api/publish`. | Exigir sesión válida y límite de peticiones por usuario. |
-| **Fotos como data URL** | Viajan completas a n8n y ocupan memoria. | Subirlas a almacenamiento (Spaces/S3, ruta `/api/upload`) y enviar URLs firmadas. |
+| **Límite en memoria** | `rate-limit.ts` cuenta por proceso: con varias instancias cada una lleva su cuenta. | Moverlo a Postgres o Redis al escalar (módulo 12, control de consumo). |
+| **Tokens de Meta** | Aún viven en n8n; no hay tabla cifrada de credenciales por negocio. | Módulos 5 y 6 (OAuth de Meta y credenciales cifradas). |
+| **Archivos huérfanos** | Al borrar un negocio o una publicación, sus imágenes quedan en Storage. | Tarea periódica que borre rutas sin referencia. |
 | **Claves compartidas por chat** | La clave de Groq del entorno local se compartió por chat durante el desarrollo. | Revocarla y crear otra antes de producción. |
 | **Contenido generado por IA** | Puede contener afirmaciones no verificadas. | El emprendedor revisa siempre antes de publicar; la publicación automática solo ocurre en redes activadas a propósito. |
 
@@ -921,12 +968,14 @@ node --test tests/studio.test.cjs tests/copy.test.cjs
 | **Groq primero, Grok de respaldo** | Groq tiene plan gratuito; xAI asegura continuidad si se agota. | Solo un proveedor. |
 | **JSON estricto + validación propia** | El modelo puede salirse del formato o de los límites. | Confiar en el texto libre del modelo. |
 | **n8n como orquestador** | Permite cambiar de proveedor de imagen o de red sin tocar la app. | Llamar a cada API desde Next.js. |
-| **Datos en el navegador** | Prototipo sin backend de datos; funciona sin conexión para editar. | Base de datos desde el inicio. |
+| **Supabase (Auth + Postgres + Storage)** | Un solo servicio para cuentas, datos con RLS y archivos. | Backend propio con Prisma. |
+| **Borrador en el dispositivo** | Se guarda cada 350 ms sin depender de la red; al crear la publicación pasa a la base. | Guardar cada tecla en la base. |
+| **`Design` como JSONB** | El modelo cambia rápido; columnas solo para lo que se filtra (`title`, `status`). | Normalizar cada campo del diseño. |
 | **Maqueta en Canvas** | Siempre hay un resultado, aunque la IA de imágenes falle. | Depender solo de la imagen generada. |
 
 ### 20.2 Límites funcionales
 
-- **Datos solo locales**: no hay sincronización entre dispositivos ni copia de seguridad.
+- **Correo de Supabase**: el SMTP incluido envía pocos correos por hora; para invitar a muchas personas hay que configurar un SMTP propio.
 - **Publicación** lista en la app, pero pendiente del workflow de n8n y de la aprobación de permisos de Meta.
 - **WhatsApp** no permite publicar estados por API.
 - **Groq gratuito** tiene límites diarios; con mucho uso hay que pasar a pago o usar el respaldo.
@@ -937,19 +986,19 @@ node --test tests/studio.test.cjs tests/copy.test.cjs
 
 | # | Hallazgo | Impacto | Propuesta |
 |---|---|---|---|
-| 1 | **Autenticación local** (`src/lib/auth.ts`) | No protege datos; contraseña temporal fija `Bienvenido123!`. | Autenticación en servidor y enlace seguro de activación. |
-| 2 | **Rutas `/api` sin control de acceso ni límite** | Abuso de cuotas de IA y de n8n. | Validar sesión y aplicar límite por usuario. |
+| 1 | **Datos de la versión anterior** | Lo guardado en IndexedDB con las cuentas de demostración no se migra a Supabase. | Ninguna (eran datos de prueba). |
+| 2 | **`/api/generate/status` no verifica el dueño del ticket** | Un usuario con sesión podría consultar el estado de un ticket ajeno si conoce su id. | Guardar `ticket_id` en `publications` y comprobarlo. |
 | 3 | **Workflows de n8n con una sola imagen** | Las tres redes muestran la misma imagen generada. | Generar las tres salidas de `content.outputs`. |
 | 4 | **Sin workflow `creamas-publish`** | Publicar devuelve "servicio no disponible". | Crearlo con credenciales de Meta. |
 | 5 | **Maqueta vertical con textos laterales** | En descripciones largas, las notas laterales tocan el borde de la foto (`renderSocialLayout`). | Ajustar anchos y tamaños según la longitud del texto. |
-| 6 | **Código heredado sin uso**: `Step*.tsx`, `WizardLayout.tsx`, `useWizardStore.ts`, `/api/upload`, `lib/s3.ts` | Confunde y arrastra dependencias (`zustand`, `lucide-react`, `uuid`, `@aws-sdk/*`). | Eliminarlo o reutilizar `/api/upload` para las fotos. |
+| 6 | **Código heredado sin uso**: `Step*.tsx`, `WizardLayout.tsx`, `useWizardStore.ts` | Confunde y arrastra dependencias (`zustand`, `lucide-react`, `uuid`). | Eliminarlo. (`/api/upload` y `lib/s3.ts` ya se eliminaron.) |
 | 7 | **Identificadores técnicos con el nombre anterior** (`creamas-*`, `x-creamas-token`, base `impulsa-studio`) | Solo de nombre. | Renombrarlos a la vez en la app y en n8n. |
 | 8 | **Sin pruebas de componentes ni de las rutas** | Regresiones visuales o de integración. | Pruebas de rutas con proveedores simulados y pruebas de UI. |
 | 9 | **Polling sin cola** | Solo se sigue una generación a la vez. | Seguir varios `ticket_id` o recibir el resultado por webhook. |
 
 ### 20.4 Trabajo futuro
 
-Autenticación real y datos en servidor, subida de fotos a almacenamiento, workflow de publicación con Meta, generación de las tres versiones en n8n, calendario de publicaciones, ejemplos de posts reales por rubro para el prompt y métricas de uso por empresa.
+OAuth de Meta y credenciales cifradas por negocio, workflow de publicación con Meta, generación de las tres versiones en n8n, calendario de publicaciones, ejemplos de posts reales por rubro para el prompt y métricas de uso por empresa.
 
 ---
 
@@ -986,7 +1035,7 @@ Solo en el servidor (`.env.local` en desarrollo). El navegador habla con rutas p
 Para cambiar de proveedor de imagen o agregar redes sin tocar la aplicación: la app solo conoce un contrato (`generationPayload`, `publishPayload`).
 
 **¿Qué limitaciones reconocen?**
-Las de la [sección 20](#20-decisiones-límites-y-deuda-técnica): autenticación de demostración, datos solo en el navegador, workflows de n8n pendientes y textos de IA que requieren revisión.
+Las de la [sección 20](#20-decisiones-límites-y-deuda-técnica): OAuth de Meta aún pendiente, workflows de n8n pendientes y textos de IA que requieren revisión.
 
 ---
 
@@ -996,11 +1045,11 @@ Las de la [sección 20](#20-decisiones-límites-y-deuda-técnica): autenticació
 
 ```bash
 npm install
-cp .env.example .env.local   # agrega GROQ_API_KEY para textos con IA
+cp .env.example .env.local   # claves de Supabase y GROQ_API_KEY
 npm run dev
 ```
 
-Ingresa con la cuenta de emprendedor de demostración (`empresario@clic.local`, contraseña en `demoAccounts` de `src/lib/auth.ts`).
+Prepara Supabase según la [sección 9.4](#94-puesta-en-marcha-de-supabase) y crea tu cuenta desde *Regístrate*.
 
 **Recorrido sugerido (≈ 8 min)**
 

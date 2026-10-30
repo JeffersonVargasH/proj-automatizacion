@@ -1,7 +1,8 @@
 import { Design, formats } from './studio';
 
 const photo = (src: string): Promise<HTMLImageElement> => new Promise((resolve, reject) => {
-  const img = new Image(); img.onload = () => resolve(img); img.onerror = () => reject(new Error('No se pudo cargar una imagen del diseño.')); img.src = src;
+  // Las URLs firmadas de Storage vienen de otro origen: sin crossOrigin el lienzo no se podría exportar.
+  const img = new Image(); if (!src.startsWith('data:')) img.crossOrigin = 'anonymous'; img.onload = () => resolve(img); img.onerror = () => reject(new Error('No se pudo cargar una imagen del diseño.')); img.src = src;
 });
 function lines(ctx: CanvasRenderingContext2D, value: string, width: number): string[] {
   const result: string[] = [];

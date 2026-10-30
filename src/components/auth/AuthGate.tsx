@@ -1,47 +1,117 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
-import { ArrowForward, Business, FileUpload, LockOutlined, Logout, MailOutline, PeopleOutline, ShieldOutlined, SpaceDashboard } from '@mui/icons-material';
-import { Alert, Box, Button, Chip, Divider, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
-import { ClicLogo } from '@/components/brand/ClicLogo';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Box, Typography } from '@mui/material';
+import AdminPanel from '@/components/admin/AdminPanel';
 import Studio from '@/components/studio/Studio';
-import { AppSession, AppUser, clearSession, createLocalUser, importLocalUsers, listUsers, loginLocal, readSession, saveSession } from '@/lib/auth';
+import { AppUser, BusinessSummary, createBusiness, deleteBusiness, listBusinesses, loadProfile, rememberBusiness, rememberedBusiness } from '@/lib/auth';
+import { supabaseBrowser } from '@/lib/supabase/client';
+import { supabaseConfigured } from '@/lib/supabase/env';
 import { storage } from '@/lib/studio-storage';
+import { AuthScreen, MessageScreen, ResetPasswordScreen } from './AuthScreens';
+
+type Account = { user: AppUser; businesses: BusinessSummary[]; activeId: string };
+
+function Loading({ text = 'Preparando tu espacio…' }: { text?: string }) {
+  return <Box sx={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', bgcolor: 'background.default' }}><Typography color="text.secondary">{text}</Typography></Box>;
+}
+
+const linkMessages: Record<string, string> = {
+  browser: 'Tu correo ya está confirmado. Inicia sesión con tu correo y contraseña.',
+  browser_reset: 'Abre el enlace en el mismo navegador donde pediste el cambio, o vuelve a pedirlo desde aquí.',
+  expired: 'El enlace venció o ya se usó. Si ya confirmaste tu correo, inicia sesión; si no, pide uno nuevo.',
+};
+
+/** Lee y limpia de la URL las señales que dejan los enlaces de correo. */
+function readUrlSignals() {
+  const url = new URL(window.location.href);
+  const hash = new URLSearchParams(url.hash.slice(1));
+  const signals = {
+    mode: url.searchParams.get('mode'),
+    authError: url.searchParams.get('auth_error') || (hash.has('error') ? 'expired' : null),
+    // Plantillas de correo por defecto de Supabase: la sesión llega en el fragmento (#access_token=…).
+    tokens: hash.get('access_token') && hash.get('refresh_token') ? { access_token: hash.get('access_token')!, refresh_token: hash.get('refresh_token')! } : null,
+    hashType: hash.get('type'),
+  };
+  if (signals.mode || signals.authError || url.hash) window.history.replaceState(null, '', url.pathname);
+  return signals;
+}
 
 export default function AuthGate() {
-  const [session, setSession] = useState<AppSession | null>(null);
   const [ready, setReady] = useState(false);
+  const [account, setAccount] = useState<Account | null>(null);
+  const [suspended, setSuspended] = useState(false);
+  const [passwordMode, setPasswordMode] = useState<'reset' | 'welcome' | null>(null);
+  const [linkError, setLinkError] = useState('');
   const [adminStudio, setAdminStudio] = useState(false);
-  const logout = () => { clearSession(); setSession(null); setAdminStudio(false); };
-  useEffect(() => { const current = readSession(); queueMicrotask(() => { if (current) { storage.setScope(current.user.id); setSession(current); } setReady(true); }); }, []);
-  if (!ready) return <Box sx={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', bgcolor: 'background.default' }}><Typography color="text.secondary">Preparando tu espacio…</Typography></Box>;
-  if (!session) return <LoginScreen onLogin={next => { storage.setScope(next.user.id); saveSession(next); setSession(next); }} />;
-  return session.user.role === 'admin' && !adminStudio ? <AdminUsers user={session.user} onOpenStudio={() => setAdminStudio(true)} onLogout={logout} /> : <Studio currentUser={session.user} onLogout={logout} />;
-}
 
-function BrandMark({ centered = false }: { centered?: boolean }) {
-  return <Box sx={centered ? { display: 'flex', justifyContent: 'center' } : undefined}><ClicLogo size={centered ? 94 : 32} /></Box>;
-}
+  const loadedId = useRef<string | null>(null);
 
-function LoginScreen({ onLogin }: { onLogin: (session: AppSession) => void }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const session = loginLocal(email, password); if (!session) setError('Correo o contraseña incorrectos.'); else { setError(''); onLogin(session); } }
-  return <Box sx={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', p: { xs: 2.5, sm: 4 }, bgcolor: '#F7F9FC', backgroundImage: 'radial-gradient(circle at 12% 18%, rgba(169,219,247,.28), transparent 28%), radial-gradient(circle at 88% 78%, rgba(198,160,255,.22), transparent 30%), linear-gradient(145deg, #F2F8FD 0%, #FAF7FF 100%)', backgroundSize: '120% 120%', animation: 'loginBgShift 16s ease-in-out infinite alternate', '@keyframes loginBgShift': { from: { backgroundPosition: '0% 0%' }, to: { backgroundPosition: '100% 100%' } }, '@media (prefers-reduced-motion: reduce)': { animation: 'none' } }}><Paper component="main" elevation={0} sx={{ width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', justifyContent: 'center', p: { xs: 2.75, sm: 3.25 }, bgcolor: '#FFFFFF', border: '1px solid #E3EAF1', borderRadius: '32px', boxShadow: '0 20px 52px rgba(63,90,120,.10)', animation: 'loginCardIn 240ms cubic-bezier(.22,1,.36,1) both', '@keyframes loginCardIn': { from: { opacity: 0, transform: 'translateY(8px)' }, to: { opacity: 1, transform: 'translateY(0)' } }, '@keyframes loginContentIn': { from: { opacity: 0, transform: 'translateY(5px)' }, to: { opacity: 1, transform: 'translateY(0)' } } }}><Box sx={{ width: '100%', animation: 'loginContentIn 220ms 40ms cubic-bezier(.22,1,.36,1) both' }}><Box sx={{ display: 'flex', justifyContent: 'center', mb: 0.5, transform: 'translateY(8px)' }}><BrandMark centered /></Box><Typography sx={{ mt: 0.75, textAlign: 'center', fontSize: '1.08rem', lineHeight: 1.1, fontWeight: 800, letterSpacing: '-0.035em', color: '#284BC8', transform: 'translateY(8px)' }}>Clic</Typography><Typography variant="body2" sx={{ mt: 0.75, textAlign: 'center', fontSize: { xs: '0.9rem', sm: '0.925rem' }, fontWeight: 450, lineHeight: 1.55, color: '#36536B', transform: 'translateY(8px)' }}>Inicia sesión en tu espacio creativo.</Typography><Box component="form" onSubmit={submit} sx={{ mt: 2.5 }}><Stack spacing={1.75}><Box sx={{ '&:focus-within > label': { color: '#5572D7' } }}><Typography component="label" htmlFor="login-email" sx={{ display: 'block', mb: 0.65, fontSize: '0.79rem', lineHeight: 1.35, fontWeight: 500, color: '#4E6A82', transition: 'color 180ms ease' }}>Correo electrónico</Typography><TextField id="login-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="tu@empresa.com" autoComplete="email" required fullWidth sx={{ '& .MuiOutlinedInput-root': { minHeight: 52, borderRadius: '13px', bgcolor: '#FFFFFF', transition: 'border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#B9C8D7' }, '& .MuiSvgIcon-root': { transition: 'color 180ms ease' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#A9DBF7' }, '&.Mui-focused': { backgroundColor: '#FFFFFF', boxShadow: '0 0 0 3px rgba(63,99,233,.08)' }, '&.Mui-focused .MuiSvgIcon-root': { color: '#5572D7' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3F63E9', borderWidth: 1.5 } }, '& .MuiInputBase-input': { fontSize: '0.92rem', paddingBlock: 1.45 } }} InputProps={{ startAdornment: <MailOutline sx={{ mr: 1, color: '#6B7E90', fontSize: 19 }} /> }} /></Box><Box sx={{ '&:focus-within > label': { color: '#5572D7' } }}><Typography component="label" htmlFor="login-password" sx={{ display: 'block', mb: 0.65, fontSize: '0.79rem', lineHeight: 1.35, fontWeight: 500, color: '#4E6A82', transition: 'color 180ms ease' }}>Contraseña</Typography><TextField id="login-password" type="password" value={password} onChange={event => setPassword(event.target.value)} placeholder="••••••••" autoComplete="current-password" required fullWidth sx={{ '& .MuiOutlinedInput-root': { minHeight: 52, borderRadius: '13px', bgcolor: '#FFFFFF', transition: 'border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#B9C8D7' }, '& .MuiSvgIcon-root': { transition: 'color 180ms ease' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#A9DBF7' }, '&.Mui-focused': { backgroundColor: '#FFFFFF', boxShadow: '0 0 0 3px rgba(63,99,233,.08)' }, '&.Mui-focused .MuiSvgIcon-root': { color: '#5572D7' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3F63E9', borderWidth: 1.5 } }, '& .MuiInputBase-input': { fontSize: '0.92rem', paddingBlock: 1.45 } }} InputProps={{ startAdornment: <LockOutlined sx={{ mr: 1, color: '#6B7E90', fontSize: 19 }} /> }} /></Box>{error && <Alert severity="error">{error}</Alert>}<Button type="submit" variant="contained" size="large" endIcon={<ArrowForward />} sx={{ width: '100%', minHeight: 52, borderRadius: '13px', bgcolor: '#3F63E9', backgroundImage: 'linear-gradient(135deg, #4B6BF0 0%, #3F63E9 100%)', color: '#FFFFFF', fontSize: '0.94rem', fontWeight: 650, boxShadow: '0 8px 18px rgba(63,99,233,.20)', transition: 'background-color 180ms ease, background-image 180ms ease, box-shadow 180ms ease, transform 180ms ease', '& .MuiButton-endIcon': { transition: 'transform 180ms ease' }, '&:hover': { bgcolor: '#3157D5', backgroundImage: 'linear-gradient(135deg, #4565E4 0%, #3157D5 100%)', boxShadow: '0 10px 22px rgba(49,87,213,.22)', transform: 'translateY(-1px)', '& .MuiButton-endIcon': { transform: 'translateX(3px)' } }, '&:active': { transform: 'translateY(0)' }, '&:focus-visible': { boxShadow: '0 0 0 3px rgba(63,99,233,.20), 0 8px 18px rgba(63,99,233,.20)' }, '&.Mui-disabled': { bgcolor: '#C7D1EC', color: '#FFFFFF', boxShadow: 'none' } }}>Ingresar</Button></Stack></Box><Typography variant="caption" sx={{ display: 'block', mt: 1.5, textAlign: 'center', fontSize: '0.72rem', color: '#6B7E90' }}>Desarrollado por ABC</Typography></Box></Paper></Box>;
-}
+  const loadAccount = useCallback(async (userId: string) => {
+    loadedId.current = userId;
+    const supabase = supabaseBrowser();
+    const user = await loadProfile(supabase, userId);
+    if (!user) { setAccount(null); return; }
+    if (user.status !== 'active') { setSuspended(true); setAccount(null); return; }
+    let businesses = await listBusinesses(supabase, user.id);
+    if (!businesses.length) businesses = [await createBusiness(supabase, user.id, 'Mi negocio')];
+    const remembered = rememberedBusiness(user.id);
+    const activeId = businesses.some(item => item.id === remembered) ? remembered! : businesses[0].id;
+    setSuspended(false);
+    setAccount({ user, businesses, activeId });
+  }, []);
 
-function AdminUsers({ user, onOpenStudio, onLogout }: { user: AppUser; onOpenStudio: () => void; onLogout: () => void }) {
-  const [users, setUsers] = useState<AppUser[]>([]);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [business, setBusiness] = useState('');
-  const [csv, setCsv] = useState('');
-  const [notice, setNotice] = useState('');
-  const [error, setError] = useState('');
-  useEffect(() => { queueMicrotask(() => setUsers(listUsers())); }, []);
-  function addUser(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setNotice(''); setError(''); try { createLocalUser({ name, email, business }); setUsers(listUsers()); setName(''); setEmail(''); setBusiness(''); setNotice('Empresario creado. Su contraseña temporal es Bienvenido123!.'); } catch (reason) { setError(reason instanceof Error ? reason.message : 'No se pudo crear el usuario.'); } }
-  function importCsv() { setNotice(''); setError(''); const result = importLocalUsers(csv); setUsers(listUsers()); setNotice(`${result.users.length} usuario(s) importado(s). ${result.skipped ? `${result.skipped} fila(s) omitida(s).` : ''}`); if (result.users.length) setCsv(''); }
-  const stats = [{ icon: PeopleOutline, value: users.filter(item => item.role === 'entrepreneur').length, label: 'Empresarios' }, { icon: Business, value: users.length, label: 'Usuarios totales' }, { icon: ShieldOutlined, value: 'Listo', label: 'Base para n8n' }];
-  return <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}><Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 4, lg: 6 }, py: { xs: 2, sm: 4 } }}><Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={2} alignItems={{ sm: 'center' }}><BrandMark /><Stack direction="row" spacing={1} alignItems="center"><Stack alignItems="flex-end"><Typography variant="body2" fontWeight={800}>{user.name}</Typography><Typography variant="caption" color="text.secondary">Administrador</Typography></Stack><Button onClick={onLogout} color="inherit" startIcon={<Logout />}>Salir</Button></Stack></Stack><Divider sx={{ my: 3 }} /><Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2} alignItems={{ md: 'flex-end' }}><Box><Typography variant="overline" color="primary.dark" sx={{ letterSpacing: '.12em', fontWeight: 900 }}>Panel de administración</Typography><Typography variant="h1">Gestiona los accesos de tus empresarios.</Typography><Typography color="text.secondary" sx={{ mt: .75 }}>Prepara las cuentas de las 80 empresas y luego conectaremos este módulo con n8n.</Typography></Box><Button variant="contained" startIcon={<SpaceDashboard />} onClick={onOpenStudio}>Abrir estudio</Button></Stack><Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 1.5, mt: 3 }}>{stats.map(({ icon: Icon, value, label }) => <Paper key={label} variant="outlined" sx={{ p: 2, borderRadius: 2 }}><Stack direction="row" spacing={1.5} alignItems="center"><Box sx={{ color: 'primary.main' }}><Icon /></Box><Box><Typography variant="h2">{value}</Typography><Typography variant="caption" color="text.secondary">{label}</Typography></Box></Stack></Paper>)}</Box>{(notice || error) && <Alert severity={error ? 'error' : 'success'} sx={{ mt: 2 }}>{error || notice}</Alert>}<Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2, mt: 2 }}><Paper component="form" onSubmit={addUser} variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}><Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}><PeopleOutline color="primary" /><Box><Typography variant="h2" fontSize={21}>Crear empresario</Typography><Typography variant="body2" color="text.secondary">Para una cuenta individual.</Typography></Box></Stack><Stack spacing={1.75}><TextField label="Nombre" value={name} onChange={event => setName(event.target.value)} placeholder="Nombre completo" required /><TextField label="Correo" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="correo@empresa.com" required /><TextField label="Negocio" value={business} onChange={event => setBusiness(event.target.value)} placeholder="Nombre del negocio" required /><Button type="submit" variant="contained" endIcon={<ArrowForward />}>Crear acceso</Button></Stack></Paper><Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}><Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}><FileUpload color="primary" /><Box><Typography variant="h2" fontSize={21}>Importar en bloque</Typography><Typography variant="body2" color="text.secondary">Una fila por empresario: nombre, correo, negocio.</Typography></Box></Stack><Stack spacing={1.75}><TextField multiline minRows={7} value={csv} onChange={event => setCsv(event.target.value)} placeholder={'nombre,correo,negocio\nAna Pérez,ana@empresa.com,Mi negocio'} /><Button variant="contained" onClick={importCsv} disabled={!csv.trim()} endIcon={<ArrowForward />}>Importar usuarios</Button><Typography variant="caption" color="text.secondary">Contraseña temporal: <Box component="code">Bienvenido123!</Box>. En producción se reemplazará por un enlace seguro enviado por n8n.</Typography></Stack></Paper></Box><Paper variant="outlined" sx={{ mt: 2, borderRadius: 2, overflow: 'hidden' }}><Box sx={{ p: { xs: 2, sm: 3 }, pb: 1 }}><Stack direction="row" spacing={1} alignItems="center"><PeopleOutline color="primary" /><Box><Typography variant="h2" fontSize={21}>Usuarios preparados</Typography><Typography variant="body2" color="text.secondary">Datos locales para validar el flujo del frontend.</Typography></Box></Stack></Box><TableContainer sx={{ overflowX: 'auto' }}><Table size="small" sx={{ minWidth: 720 }}><TableHead><TableRow><TableCell>Nombre</TableCell><TableCell>Correo</TableCell><TableCell>Negocio</TableCell><TableCell>Estado</TableCell></TableRow></TableHead><TableBody>{users.map(item => <TableRow key={item.id}><TableCell><Typography variant="body2" fontWeight={700}>{item.name}</Typography>{item.role === 'admin' && <Typography variant="caption" color="text.secondary">Administrador</Typography>}</TableCell><TableCell>{item.email}</TableCell><TableCell>{item.business}</TableCell><TableCell><Chip size="small" label={item.status === 'active' ? 'Activo' : 'Pendiente'} color={item.status === 'active' ? 'success' : 'warning'} variant="outlined" /></TableCell></TableRow>)}</TableBody></Table></TableContainer></Paper></Box></Box>;
+  useEffect(() => {
+    if (!supabaseConfigured) { queueMicrotask(() => setReady(true)); return; }
+    const supabase = supabaseBrowser();
+    const signals = readUrlSignals();
+    let active = true;
+    async function start() {
+      if (signals.tokens) await supabase.auth.setSession(signals.tokens);
+      const mode = signals.mode === 'welcome' || signals.hashType === 'invite' ? 'welcome' : signals.mode === 'reset' || signals.hashType === 'recovery' ? 'reset' : null;
+      if (signals.authError) setLinkError(linkMessages[signals.authError] || linkMessages.expired);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!active) return;
+      if (user) { if (mode) setPasswordMode(mode); await loadAccount(user.id).catch(() => setLinkError('No se pudo cargar tu cuenta. Recarga la página.')); }
+      if (active) setReady(true);
+    }
+    void start();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') { loadedId.current = null; storage.configure(null); setAccount(null); setAdminStudio(false); }
+      if (event === 'PASSWORD_RECOVERY') setPasswordMode('reset');
+      // SIGNED_IN también llega al volver a la pestaña: solo se recarga si cambió la cuenta.
+      if (event === 'SIGNED_IN' && session?.user && loadedId.current !== session.user.id) void loadAccount(session.user.id);
+    });
+    return () => { active = false; subscription.unsubscribe(); };
+  }, [loadAccount]);
+
+  const logout = useCallback(async () => { await supabaseBrowser().auth.signOut(); }, []);
+
+  if (!supabaseConfigured) return <MessageScreen title="Falta configurar Supabase" message="Agrega NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local y reinicia el servidor. Las instrucciones están en el README." />;
+  if (!ready) return <Loading />;
+  if (suspended) return <MessageScreen title="Cuenta suspendida" message="Tu cuenta está suspendida. Escribe al administrador de Clic para reactivarla." action={{ label: 'Cerrar sesión', onClick: () => { setSuspended(false); void logout(); } }} />;
+  // Un enlace abierto en otro navegador igual confirmó el correo: se avisa en verde, no como error.
+  if (!account) return linkError === linkMessages.browser ? <AuthScreen key={linkError} initialNotice={linkError} /> : <AuthScreen key={linkError} initialError={linkError} />;
+  if (passwordMode) return <ResetPasswordScreen invited={passwordMode === 'welcome'} onDone={() => setPasswordMode(null)} />;
+
+  const { user, businesses, activeId } = account;
+  if (user.role === 'admin' && !adminStudio) return <AdminPanel user={user} onOpenStudio={() => setAdminStudio(true)} onLogout={logout} />;
+
+  const supabase = supabaseBrowser();
+  // Studio se vuelve a montar al cambiar de negocio para cargar sus datos desde cero.
+  storage.configure({ supabase, userId: user.id, businessId: activeId });
+  const switchTo = (id: string) => { rememberBusiness(user.id, id); setAccount({ ...account, activeId: id }); };
+  return <Studio
+    key={activeId}
+    currentUser={user}
+    businesses={businesses}
+    activeBusinessId={activeId}
+    onSwitchBusiness={switchTo}
+    onCreateBusiness={async name => { const created = await createBusiness(supabase, user.id, name); rememberBusiness(user.id, created.id); setAccount({ ...account, businesses: [...businesses, created], activeId: created.id }); }}
+    onDeleteBusiness={async id => { await deleteBusiness(supabase, id); const rest = businesses.filter(item => item.id !== id); rememberBusiness(user.id, rest[0].id); setAccount({ ...account, businesses: rest, activeId: rest[0].id }); }}
+    onBusinessRenamed={name => setAccount(current => current && ({ ...current, businesses: current.businesses.map(item => item.id === activeId ? { ...item, name } : item) }))}
+    onUserChange={next => setAccount(current => current && ({ ...current, user: next }))}
+    onOpenAdmin={user.role === 'admin' ? () => setAdminStudio(false) : undefined}
+    onLogout={logout}
+  />;
 }

@@ -30,7 +30,7 @@ export type Preferences = { tone: string; style: string; hashtags: string; instr
 export type Connection = { enabled: boolean; account: string };
 export type Brand = { name: string; logo: string; primary: string; secondary: string; phone: string; instagram: string; facebook: string; address: string; preferences: Preferences; connections: Record<Network, Connection> };
 export const emptyBrand: Brand = {
-  name: '', logo: '', primary: '#3F63E9', secondary: '#F7F9FC', phone: '', instagram: '', facebook: '', address: '',
+  name: '', logo: '', primary: '#2F5BFF', secondary: '#F7F9FC', phone: '', instagram: '', facebook: '', address: '',
   preferences: { tone: 'Cercano', style: 'Moderno', hashtags: '', instructions: '' },
   connections: { instagram: { enabled: false, account: '' }, facebook: { enabled: false, account: '' }, whatsapp: { enabled: false, account: '' } },
 };
