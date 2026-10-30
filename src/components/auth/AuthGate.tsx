@@ -20,6 +20,7 @@ const linkMessages: Record<string, string> = {
   browser: 'Tu correo ya está confirmado. Inicia sesión con tu correo y contraseña.',
   browser_reset: 'Abre el enlace en el mismo navegador donde pediste el cambio, o vuelve a pedirlo desde aquí.',
   expired: 'El enlace venció o ya se usó. Si ya confirmaste tu correo, inicia sesión; si no, pide uno nuevo.',
+  google: 'No se pudo entrar con Google. Inténtalo de nuevo o ingresa con tu correo.',
 };
 
 /** Lee y limpia de la URL las señales que dejan los enlaces de correo. */

@@ -404,6 +404,17 @@ sequenceDiagram
 - **Contraseñas**: mínimo 8 caracteres, con letras y números (`passwordProblem`). Supabase las guarda con hash; la app nunca las ve en texto plano.
 - **Invitaciones**: el administrador invita desde el panel (`POST /api/admin/users`). La persona recibe un correo, entra a `/?mode=welcome` y elige su contraseña. Ya no hay contraseñas temporales.
 - **Suspensión**: `PATCH /api/admin/users` marca el perfil como `suspended` **y** banea el usuario en Auth. RLS deja de devolverle datos aunque su token siga vigente unos minutos.
+- **Google**: "Continuar con Google" llama a `signInWithOAuth` y vuelve a `/auth/callback?provider=google`, que canjea el código, registra el login y entra al estudio. La primera vez el trigger `handle_new_user` crea el perfil con el nombre de Google y un negocio "Mi negocio". Si la persona cancela, ve un aviso y puede entrar con su correo. Una cuenta con el mismo correo se une a la existente.
+
+#### Activar Google
+
+1. **Google Cloud Console** → APIs y servicios → Pantalla de consentimiento de OAuth: tipo *Externo*, nombre "Clic", logo y correo de soporte.
+2. **Credenciales → Crear credenciales → ID de cliente de OAuth** → *Aplicación web*.
+   - Orígenes autorizados de JavaScript: `http://localhost:3005` y la URL de producción.
+   - URI de redireccionamiento autorizados: `https://<tu-proyecto>.supabase.co/auth/v1/callback`.
+3. **Supabase** → Authentication → Sign In / Providers → Google: actívalo y pega el *Client ID* y el *Client Secret*.
+4. **Supabase** → Authentication → URL Configuration: agrega `http://localhost:3005/auth/callback` y la de producción a *Redirect URLs*.
+5. En `.env.local`: `NEXT_PUBLIC_GOOGLE_AUTH=true` y reinicia `npm run dev`.
 
 ## 9. Modelo de datos y almacenamiento
 

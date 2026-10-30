@@ -17,10 +17,16 @@ export async function GET(request: Request) {
   const type = url.searchParams.get('type') as EmailOtpType | null;
   const fail = (reason: string) => NextResponse.redirect(new URL(`/?auth_error=${reason}`, url.origin));
 
-  // Supabase ya rechazó el enlace antes de llegar aquí (vencido o usado).
-  if (url.searchParams.get('error_code') === 'otp_expired' || url.searchParams.has('error')) return fail('expired');
+  const google = url.searchParams.get('provider') === 'google';
+  // Supabase ya rechazó el enlace (vencido o usado) o la persona canceló en Google.
+  if (url.searchParams.get('error_code') === 'otp_expired' || url.searchParams.has('error')) return fail(google ? 'google' : 'expired');
 
   const supabase = await supabaseServer();
+  if (google) {
+    if (!code || (await supabase.auth.exchangeCodeForSession(code)).error) return fail('google');
+    await supabase.rpc('log_activity', { p_action: 'login', p_entity: 'session' });
+    return NextResponse.redirect(new URL('/', url.origin));
+  }
   if (tokenHash && type && otpTypes.includes(type)) {
     if ((await supabase.auth.verifyOtp({ token_hash: tokenHash, type })).error) return fail('expired');
   } else if (code) {
