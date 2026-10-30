@@ -2,12 +2,12 @@
 
 Estudio de publicaciones para **pequeños emprendedores**: con la foto de su producto y unos pocos datos, Clic arma una publicación con su marca en **tres versiones (Instagram, Facebook y estado de WhatsApp)**, escribe el texto de cada red con IA y la deja lista para descargar, compartir o publicar.
 
-> **Resumen en 30 segundos.** El emprendedor configura su negocio **una sola vez** (logo, colores, tono, hashtags y redes). Para cada publicación solo elige **qué quiere lograr**, sube **de una a tres fotos** y revisa: Clic propone el diseño con sus colores y un texto distinto para cada red, escrito por IA sin inventar datos. Todo queda guardado en **Mis publicaciones**, desde donde puede editar, descargar las tres imágenes o publicarlas.
+> **Resumen en 30 segundos.** El emprendedor entra con su correo o con Google y configura su negocio **una sola vez** (logo, colores, tono, hashtags y redes). Para cada publicación sube **de una a tres fotos**, elige **para qué es** y revisa el mensaje: Clic propone el diseño con sus colores y un texto distinto para cada red, escrito por IA sin inventar datos. Todo queda guardado en **Mis publicaciones**, desde donde puede editar, descargar las tres imágenes o publicarlas.
 >
 > **Resumen técnico.** Aplicación Next.js 16 / React 19 / TypeScript con Material UI. Cuentas, datos e imágenes en **Supabase** (Auth, Postgres con RLS y Storage); el diseño se renderiza con Canvas en el navegador. Las rutas del servidor exigen sesión y hacen de puente: generación de imágenes y publicación en redes vía **webhooks de n8n**, y redacción de textos vía **Groq** (GPT-OSS, plan gratuito) con **Grok de xAI** como respaldo. Ninguna clave llega al navegador.
 
 <p align="center">
-  <img src="docs/capturas/08-editor-facebook.png" alt="Editor de Clic con la versión de Facebook de una publicación" width="640">
+  <img src="docs/capturas/02-inicio.png" alt="Inicio de Clic con el ejemplo de foto convertida en publicación" width="640">
 </p>
 
 ---
@@ -55,7 +55,8 @@ Estudio de publicaciones para **pequeños emprendedores**: con la foto de su pro
 | Diseñar cada publicación desde cero toma tiempo y exige saber de diseño. | Configura la marca **una vez** y cada publicación sale con su logo, colores, tono y contacto. |
 | Cada red pide un tamaño distinto y terminan publicando la misma imagen recortada. | Genera **tres versiones** con el tamaño correcto: Instagram 1080 × 1080, Facebook 1200 × 630 y estado de WhatsApp 1080 × 1920. |
 | Escribir un buen texto para redes cuesta; el que sale es corto o genérico. | La IA escribe un texto **por red** con la estructura de los posts que funcionan (gancho, historia, beneficios, datos y llamado a la acción), sin inventar datos. |
-| Los formularios largos hacen que abandonen a la mitad. | Flujo de **tres pasos**: intención, producto y revisión. Lo demás viene de las preferencias. |
+| Los formularios largos hacen que abandonen a la mitad. | Flujo de **tres pasos**: tu producto, para qué es y tu mensaje, con una vista previa que se arma mientras escribe. Lo demás viene de las preferencias. |
+| Muchos emprendedores tienen poca experiencia digital. | Botones grandes, textos sin jerga, un solo camino por pantalla y avisos que dicen qué falta en vez de botones apagados. |
 | Las piezas se pierden entre el celular y el chat. | **Mis publicaciones** guarda todo automáticamente, con búsqueda, filtros, duplicado y estado de cada red. |
 
 **Alcance actual.** Es un prototipo funcional **local**: el estudio, el guardado y la redacción con IA funcionan de punta a punta; la generación de imágenes con IA y la publicación en redes dependen de workflows de n8n (ver [sección 14](#14-workflows-de-n8n)) y de las credenciales de Meta.
@@ -64,20 +65,24 @@ Estudio de publicaciones para **pequeños emprendedores**: con la foto de su pro
 
 ## 2. Recorrido por la aplicación
 
+Las capturas usan un negocio de ejemplo, *Monte Café*, creado con una cuenta de prueba. Los textos de las publicaciones los escribió la IA (Groq). Las imágenes son maquetas, porque n8n no estaba corriendo.
+
 | | |
 |---|---|
 | <img src="docs/capturas/01-login.png" alt="Inicio de sesión" width="380"> | <img src="docs/capturas/02-inicio.png" alt="Inicio" width="380"> |
-| **Inicio de sesión.** Correo y contraseña con Supabase Auth; también registro y recuperación de contraseña (ver [sección 8](#8-autenticación-supabase-auth)). | **Inicio.** Lo pendiente va primero (configurar el negocio o retomar lo que quedó a medias), el acceso a crear y las últimas publicaciones. |
+| **Inicio de sesión.** Pantalla dividida con la marca a la izquierda. Correo y contraseña o *Continuar con Google*; también registro y recuperación de contraseña (ver [sección 8](#8-autenticación-supabase-auth)). | **Inicio.** Saludo, borrador a medias (si hay), banda principal con el ejemplo "de tu foto a una publicación lista" y el botón *Crear publicación*, los tres pasos explicados, aviso para completar el negocio y la galería de publicaciones. |
 | <img src="docs/capturas/12-mi-negocio-preferencias.png" alt="Preferencias de publicación" width="380"> | <img src="docs/capturas/13-redes-conectadas.png" alt="Redes conectadas" width="380"> |
-| **Mi negocio · Preferencias.** Estilo visual (pintado con los colores de la marca), tono, hashtags e indicaciones fijas para el generador. | **Mi negocio · Redes conectadas.** Cuenta de cada red y si se publica automáticamente al terminar la generación. |
-| <img src="docs/capturas/03-crear-intencion.png" alt="Paso 1: intención" width="380"> | <img src="docs/capturas/04-crear-producto.png" alt="Paso 2: producto" width="380"> |
-| **Paso 1 · Intención.** Vender, promocionar una oferta, anunciar una novedad, invitar a un evento, atraer visitas o informar. | **Paso 2 · Producto.** Nombre, descripción, de una a tres fotos, precio y vigencia. El contacto viene del negocio. |
-| <img src="docs/capturas/05-crear-revision.png" alt="Paso 3: revisión" width="380"> | <img src="docs/capturas/06-textos-ia.png" alt="Textos por red escritos con IA" width="380"> |
-| **Paso 3 · Revisión.** Título, texto y llamado a la acción ya escritos por IA; se pueden reescribir o cambiar el estilo solo para esta publicación. | **Textos por red.** Instagram largo con beneficios y datos, Facebook conversacional y WhatsApp corto. |
-| <img src="docs/capturas/07-editor-instagram.png" alt="Editor, versión Instagram" width="380"> | <img src="docs/capturas/09-publicar-redes.png" alt="Publicar en redes" width="380"> |
-| **Editor.** Una pestaña por red; texto, imagen, estilo y posición editables. Si la IA de imágenes no está disponible, se muestra la maqueta con la marca. | **Publicar en tus redes.** Estado de cada red (automática, manual o sin cuenta) y publicación individual. |
-| <img src="docs/capturas/10-mis-publicaciones.png" alt="Mis publicaciones" width="380"> | <img src="docs/capturas/14-admin.png" alt="Panel de administración" width="380"> |
-| **Mis publicaciones.** Todo lo creado o generado, con búsqueda y filtros (generadas con IA, maquetas, publicadas, con fecha). | **Administración.** Alta de empresarios uno a uno o en bloque (CSV). |
+| **Mi negocio · Preferencias.** Estilo visual (Moderno, Vibrante o Minimalista, cada uno con su icono), tono, hashtags e indicaciones fijas para el generador. | **Mi negocio · Redes conectadas.** Cuenta de cada red y si se publica automáticamente al terminar la generación. |
+| <img src="docs/capturas/03-crear-producto.png" alt="Paso 1: tu producto" width="380"> | <img src="docs/capturas/04-crear-para-que.png" alt="Paso 2: para qué es" width="380"> |
+| **Paso 1 · Tu producto.** De una a tres fotos ("Toca aquí para subir una foto"), el nombre y, si quiere, qué lo hace especial. A la derecha, *Así va quedando…* arma la publicación mientras escribe. | **Paso 2 · Para qué es.** Vender, anunciar una novedad, promocionar una oferta, invitar a un evento, atraer visitas o informar; cada opción con icono y una línea de ayuda. |
+| <img src="docs/capturas/05-crear-mensaje.png" alt="Paso 3: tu mensaje" width="380"> | <img src="docs/capturas/06-textos-ia.png" alt="Más opciones: estilo, tono y textos por red" width="380"> |
+| **Paso 3 · Tu mensaje.** Título, mensaje y frase final ya escritos por IA; *Escribir otro texto* pide otra versión. Los pasos terminados quedan en menta. | **Más opciones.** Estilo y tono solo para esta publicación, y el texto de cada red: Instagram largo con beneficios y datos, Facebook conversacional y WhatsApp corto. |
+| <img src="docs/capturas/07-editor-instagram.png" alt="Tu publicación, versión Instagram" width="380"> | <img src="docs/capturas/08-editor-facebook.png" alt="Tu publicación, versión Facebook" width="380"> |
+| **Tu publicación.** "¡Tu publicación está lista!", una pestaña por red y, al lado, *Usar en [red]* con botones grandes: Publicar (si la red tiene cuenta), Compartir y Guardar imagen. Debajo, el texto de la red con *Copiar texto*. | **Cada red con su tamaño.** Facebook horizontal (1200 × 630) con su propio texto. Sin cuenta conectada, la red ofrece Compartir y Guardar imagen. |
+| <img src="docs/capturas/09-cambiar-diseno.png" alt="Cambiar el diseño" width="380"> | <img src="docs/capturas/10-mis-publicaciones.png" alt="Mis publicaciones" width="380"> |
+| **Cambios opcionales.** Plegados para no distraer: *Cambiar el diseño* (Texto, Foto, Colores, Mover; aquí se agregan precio y vigencia) y *Todas las redes a la vez* (guardar las 3 imágenes). | **Mis publicaciones.** Todo lo creado o generado, con búsqueda y filtros (generadas con IA, maquetas, publicadas, con fecha). |
+| <img src="docs/capturas/14-admin.png" alt="Panel de administración" width="380"> | |
+| **Administración.** Resumen de cuentas, invitaciones una a una o en bloque (CSV), cuentas y auditoría. | |
 
 En el celular la interfaz se adapta a una columna y el menú pasa a un cajón lateral:
 
@@ -94,7 +99,9 @@ En el celular la interfaz se adapta a una columna y el menú pasa a un cajón la
 | Rol | Rol técnico (`AppUser.role`) | Puede |
 |---|---|---|
 | **Emprendedor** | `entrepreneur` | Configurar su negocio, crear, editar, descargar, compartir y publicar sus publicaciones. Solo ve sus propios datos. |
-| **Administrador** | `admin` | Invitar emprendedores por correo (uno a uno o en bloque `nombre,correo,negocio`), cambiar roles, suspender y reactivar cuentas, ver la auditoría y abrir su propio estudio. |
+| **Administrador** | `admin` | Invitar emprendedores por correo (uno a uno o en bloque `nombre,correo,negocio`), cambiar roles, suspender y reactivar cuentas, ver la auditoría y abrir su propio estudio. Al entrar ve primero el panel; *Abrir mi estudio* lo lleva al estudio y el botón *Administración* del menú lo devuelve. |
+
+Toda cuenta nueva (correo o Google) nace como `entrepreneur`. El primer administrador se nombra desde el SQL Editor de Supabase (ver [9.4](#94-puesta-en-marcha-de-supabase), paso 5); los siguientes, desde el panel.
 
 Cada usuario puede tener **varios negocios**; cada negocio guarda su marca y sus publicaciones. Las políticas RLS de Postgres garantizan que nadie lea ni edite datos ajenos. Ver [sección 8](#8-autenticación-supabase-auth) y [9.3](#93-seguridad).
 
@@ -105,11 +112,12 @@ Cada usuario puede tener **varios negocios**; cada negocio guarda su marca y sus
 | Regla | Detalle | Dónde se aplica |
 |---|---|---|
 | **Tres versiones por publicación** | `instagram` 1080 × 1080, `facebook` 1200 × 630, `whatsapp` 1080 × 1920. Los formatos antiguos (`portrait`, `story`) se conservan solo para abrir publicaciones viejas. | `networks`, `outputs`, `formats` en `src/lib/studio.ts` |
-| **Para avanzar** | Paso 2: producto y al menos una foto. Paso 3: título y llamado a la acción. | `CreateFlow.tsx` (`valid`) |
+| **Para avanzar** | Paso 1: al menos una foto y el nombre del producto. Paso 3: título y frase final (llamado a la acción). Si falta algo, el botón sigue activo y un aviso dice qué falta. | `CreateFlow.tsx` (`missing`) |
+| **Texto con IA** | Al pasar del paso 2 al 3 sin título, se pone una plantilla al instante y se pide el texto a la IA; si la IA falla, queda la plantilla. | `next()` y `write()` en `CreateFlow.tsx` |
 | **Fotos** | De 1 a 3, JPG/PNG/WebP, máximo 8 MB cada una; se reducen a 1600 px (logo a 400 px) antes de guardarse. | `readPhoto()` en `studio-storage.ts`, `Photos` en `Fields.tsx` |
-| **Intención** | Una sola elección que fija `type` y `objective` (los dos siguen viajando a n8n). | `intents` en `studio.ts` |
+| **Para qué es (intención)** | Una sola elección que fija `type` y `objective` (los dos siguen viajando a n8n). | `intents` en `studio.ts` |
 | **Preferencias** | Tono, estilo, hashtags e indicaciones se copian a cada publicación nueva; cambiarlas en una publicación no toca el perfil. | `newDesign()`, `normalizeBrand()` |
-| **Estilo con colores de marca** | Moderno = principal sobre fondo; Vibrante = fondo con el color principal; Minimalista = fondo blanco y tipografía serif. | `styleLook()` |
+| **Estilo con colores de marca** | Moderno = principal sobre fondo; Vibrante = fondo con el color principal; Minimalista = fondo blanco y tipografía serif. El selector muestra un icono fijo por estilo (`public/estilos/`). | `styleLook()`; `StylePicker` en `Fields.tsx` |
 | **Textos sin datos inventados** | La IA solo usa precio, vigencia, contacto, dirección y características escritas; prohíbe stock, envíos, descuentos o propiedades del material no indicadas. | Prompt en `copyMessages()` (`src/lib/copy.ts`) |
 | **Límites de texto** | Diseño: título 80, texto 180, llamado 40 caracteres (la IA apunta a 60 / 160 / 30). Redes: Instagram 2200, Facebook 2000, WhatsApp 700. | `Field maxLength`, `copyLimits`, `captionLimits` |
 | **Hashtags** | Instagram: todos (8–12); Facebook: los 3 primeros; WhatsApp: ninguno. Siempre se incluyen los de la marca. | `sanitizeCopy()` |
@@ -128,11 +136,16 @@ Cada usuario puede tener **varios negocios**; cada negocio guarda su marca y sus
 | Quiero… | Mira en… |
 |---|---|
 | Entender cómo entra un usuario | `src/components/auth/AuthGate.tsx`, `AuthScreens.tsx`, `src/lib/auth.ts` → [sección 8](#8-autenticación-supabase-auth) |
+| Cambiar el inicio con Google | `withGoogle()` en `AuthScreens.tsx` y la rama `provider=google` de `src/app/auth/callback/route.ts` |
+| Cambiar los correos de Supabase | `supabase/templates/*.html` (se pegan en Authentication → Email Templates) |
+| Cambiar la pantalla de Inicio | `HomeView` y `HeroVisual` en `src/components/studio/Studio.tsx`; imágenes en `public/ejemplo/` |
+| Cambiar el logo, el favicon o los iconos de redes | `src/components/brand/ClicLogo.tsx`, `src/app/icon.svg`, `src/components/brand/NetworkIcon.tsx` |
+| Probar con una cuenta sin enviar correos | `node scripts/test-user.mjs create` / `delete` |
 | Cambiar tablas, permisos o RLS | `supabase/migrations/20261029000000_base.sql` → [sección 9](#9-modelo-de-datos-y-almacenamiento) |
 | Proteger una ruta `/api` nueva | `requireUser()` y `audit()` en `src/lib/supabase/server.ts`; límites en `src/lib/rate-limit.ts` |
 | Cambiar el panel de administración | `src/components/admin/AdminPanel.tsx` y `src/app/api/admin/users/route.ts` |
 | Cambiar el menú o añadir una vista | `src/components/studio/Studio.tsx` (`View`, `nav`) |
-| Cambiar los pasos de *Crear publicación* | `src/components/studio/CreateFlow.tsx` (`steps`, `titles`, `descriptions`) |
+| Cambiar los pasos de *Crear publicación* | `src/components/studio/CreateFlow.tsx` (`steps`, `titles`, `descriptions`, `tips`, `intentHelp`, `LivePreview`) |
 | Cambiar qué se guarda de cada publicación | Tipo `Design` y `newDesign()` en `src/lib/studio.ts` |
 | Añadir una intención, tono o estilo | `intents`, `tones`, `styles`, `styleLook()` en `src/lib/studio.ts` |
 | Cambiar el diseño de la maqueta (Canvas) | `src/lib/studio-renderer.ts` (`renderSocialLayout`) |
@@ -152,10 +165,11 @@ Cada usuario puede tener **varios negocios**; cada negocio guarda su marca y sus
 proj-automatizacion/
 ├─ src/
 │  ├─ app/
-│  │  ├─ layout.tsx               Metadatos, proveedor de caché de MUI y tema
+│  │  ├─ layout.tsx               Metadatos, fuente Geist, proveedor de caché de MUI y tema
 │  │  ├─ page.tsx                 Única página: renderiza AuthGate
+│  │  ├─ icon.svg                 Favicon (la "C" de Clic)
 │  │  ├─ globals.css              Estilos globales (Tailwind importado)
-│  │  ├─ auth/callback/route.ts   Enlaces de correo de Supabase (confirmar, invitar, recuperar)
+│  │  ├─ auth/callback/route.ts   Enlaces de correo de Supabase y regreso de Google
 │  │  └─ api/                     Rutas del servidor (todas exigen sesión)
 │  │     ├─ admin/users/route.ts        GET/POST/PATCH → cuentas (solo admin)
 │  │     ├─ generate/route.ts           POST → webhook n8n de generación
@@ -165,16 +179,17 @@ proj-automatizacion/
 │  ├─ proxy.ts                    Renueva la sesión de Supabase en cada petición
 │  ├─ components/
 │  │  ├─ auth/AuthGate.tsx        Sesión, perfil, negocios y reparto por rol
-│  │  ├─ auth/AuthScreens.tsx     Ingresar, registrarse, recuperar y elegir contraseña
+│  │  ├─ auth/AuthScreens.tsx     Ingresar (correo o Google), registrarse, recuperar y elegir contraseña
 │  │  ├─ admin/AdminPanel.tsx     Invitaciones, roles, suspensión y auditoría
 │  │  ├─ studio/
-│  │  │  ├─ Studio.tsx            Contenedor: menú, vistas, guardado, generación y publicación
+│  │  │  ├─ Studio.tsx            Contenedor: menú, Inicio, guardado, generación y publicación
 │  │  │  ├─ AccountView.tsx       Mi cuenta: nombre, contraseña, negocios, actividad
-│  │  │  ├─ CreateFlow.tsx        Crear publicación en 3 pasos
-│  │  │  ├─ Editor.tsx            Editor por red, descargas, publicación
+│  │  │  ├─ CreateFlow.tsx        Crear publicación en 3 pasos con vista previa en vivo
+│  │  │  ├─ Editor.tsx            Tu publicación: pestaña por red, publicar, compartir, guardar
 │  │  │  ├─ BrandForm.tsx         Mi negocio: identidad, contacto, preferencias, redes
 │  │  │  └─ Fields.tsx            Field, Choices, Panel, Photos, StylePicker
-│  │  ├─ brand/ClicLogo.tsx       Logo
+│  │  ├─ brand/ClicLogo.tsx       Logo (marca y palabra)
+│  │  ├─ brand/NetworkIcon.tsx    Iconos y colores de Instagram, Facebook y WhatsApp
 │  │  ├─ theme/AppThemeProvider   Tema de MUI
 │  │  └─ Step*.tsx, WizardLayout  (heredados, sin uso)
 │  ├─ hooks/usePolling.ts         Consulta el estado de la generación cada 3 s
@@ -190,10 +205,14 @@ proj-automatizacion/
 │  ├─ store/useWizardStore.ts     (heredado, sin uso)
 │  └─ theme.ts                    Paleta y tipografía
 ├─ supabase/migrations/           Esquema, RLS, triggers y Storage
+├─ supabase/templates/            Correos de confirmar cuenta, invitación y recuperar contraseña
+├─ scripts/                       check-rls.mjs (prueba de seguridad), test-user.mjs (cuentas de prueba)
 ├─ n8n/                           Workflows importables de generación de imágenes
 ├─ tests/                         Pruebas con node:test sobre src/lib
 ├─ docs/capturas/                 Capturas usadas en este README
 ├─ public/brand/                  Recursos del logo
+├─ public/ejemplo/                Foto de producto y publicación de ejemplo (Inicio)
+├─ public/estilos/                Iconos de los estilos Moderno, Vibrante y Minimalista
 └─ .env.example                   Plantilla de variables de entorno
 ```
 
@@ -201,7 +220,7 @@ proj-automatizacion/
 
 | Pantalla | Datos y servicios |
 |---|---|
-| Inicio de sesión | Supabase Auth; `/auth/callback` para los enlaces de correo |
+| Inicio de sesión | Supabase Auth (correo y Google); `/auth/callback` para los enlaces de correo y el regreso de Google |
 | Administración | `GET/POST/PATCH /api/admin/users`; `activity_log` |
 | Inicio | `businesses`, `publications`; IndexedDB: `draft` |
 | Mi negocio | `businesses.brand`; logo en Storage |
@@ -298,7 +317,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  dev["npm run dev<br/>localhost:3000"] --> app["Next.js<br/>.next-studio/"]
+  dev["npm run dev -- -p 3005<br/>localhost:3005"] --> app["Next.js<br/>.next-studio/"]
   env[".env.local<br/>ignorado por git"] -.-> app
   app -->|"webhooks"| dock["n8n en Docker<br/>localhost:5678"]
   app -->|"HTTPS"| sb["Supabase<br/>proyecto en la nube"]
@@ -317,7 +336,7 @@ No hay despliegue de producción todavía. La compilación usa `distDir: '.next-
 ```mermaid
 flowchart TD
   L["layout.tsx<br/>tema MUI"] --> P["page.tsx"] --> AG["AuthGate"]
-  AG -->|"sin sesión"| LOGIN["AuthScreen<br/>ingresar, registrarse, recuperar"]
+  AG -->|"sin sesión"| LOGIN["AuthScreen<br/>correo o Google, registrarse, recuperar"]
   AG -->|"enlace de recuperación o invitación"| RESET["ResetPasswordScreen"]
   AG -->|"role = admin"| ADM["AdminPanel"]
   ADM -->|"Abrir mi estudio"| ST
@@ -325,9 +344,9 @@ flowchart TD
 
   ST --> NAVM["Menú: Inicio, Crear, Mis publicaciones, Mi negocio, Mi cuenta<br/>selector de negocio"]
   ST --> AC["AccountView"]
-  ST --> HV["HomeView"]
+  ST --> HV["HomeView<br/>HeroVisual, pasos, galería"]
   ST --> BF["BrandForm"]
-  ST --> CF["CreateFlow<br/>Intención, Producto, Revisión"]
+  ST --> CF["CreateFlow<br/>Tu producto, Para qué es, Tu mensaje<br/>+ LivePreview"]
   ST --> ED["Editor<br/>pestaña por red"]
   ST --> HI["HistoryView"]
 
@@ -349,6 +368,8 @@ flowchart TD
 | **Maqueta en Canvas** | La vista previa y la descarga usan el mismo renderizador (`renderDesign`), así que lo que se ve es lo que se descarga. |
 | **Diseño adaptable** | MUI con puntos de quiebre `sm`/`md`/`lg`; cuadrículas con `minmax(0, 1fr)` para que nada desborde en 375 px; menú lateral fijo en escritorio y cajón en celular. |
 | **Mensajes claros** | Errores de red y de servicios externos traducidos a frases sin jerga ("El generador con IA no está disponible en este momento"). |
+| **Marca Clic** | Fuente Geist (`next/font`); paleta azul `#2F5BFF`, tinta `#101418`, gris `#8B95A7`, bordes `#E6EBF2`, fondo `#F7F8FA` y menta `#6FD9C1` para lo terminado. Bandas navy con degradado en Inicio, acceso y crear publicación. Frase de marca: "Tu contenido, resuelto con claridad." |
+| **Pensado para poca experiencia digital** | Un botón principal por pantalla, textos grandes, pasos numerados, opciones avanzadas plegadas y en el celular la acción principal fija abajo. |
 
 ### 7.3 Patrones que se repiten
 
@@ -376,6 +397,12 @@ sequenceDiagram
   else Inicio de sesión
     U->>AG: correo y contraseña
     AG->>SA: signInWithPassword
+    AG->>DB: log_activity('login')
+  else Continuar con Google
+    U->>AG: elige su cuenta de Google
+    AG->>SA: signInWithOAuth (redirectTo /auth/callback?provider=google)
+    SA-->>AG: /auth/callback canjea el código (PKCE)
+    SA->>DB: primera vez: trigger handle_new_user
     AG->>DB: log_activity('login')
   else Olvidé mi contraseña
     U->>AG: correo
@@ -415,6 +442,9 @@ sequenceDiagram
 3. **Supabase** → Authentication → Sign In / Providers → Google: actívalo y pega el *Client ID* y el *Client Secret*.
 4. **Supabase** → Authentication → URL Configuration: agrega `http://localhost:3005/auth/callback` y la de producción a *Redirect URLs*.
 5. En `.env.local`: `NEXT_PUBLIC_GOOGLE_AUTH=true` y reinicia `npm run dev`.
+6. Mientras la app de Google esté en **modo de prueba**, solo entran las cuentas agregadas como *usuarios de prueba* en la pantalla de consentimiento. Para abrirla a todos, publícala desde esa misma pantalla.
+
+El *Client Secret* se guarda solo en Supabase; la app no lo necesita ni debe estar en `.env.local`.
 
 ## 9. Modelo de datos y almacenamiento
 
@@ -503,10 +533,10 @@ Se eliminó `/api/upload`, que firmaba subidas públicas a DigitalOcean Spaces s
 1. Crea un proyecto en [supabase.com](https://supabase.com) y abre **SQL Editor**. Pega y ejecuta `supabase/migrations/20261029000000_base.sql`.
 2. En **Project Settings → API** copia la URL, la `anon`/publishable key y la `service_role` key a `.env.local` (ver `.env.example`).
 3. En **Authentication → URL Configuration** pon como *Site URL* la dirección de la app (en local, `http://localhost:3005`) y agrega `http://localhost:3005/auth/callback` a *Redirect URLs*.
-4. En **Authentication → Email Templates** cambia el enlace de cada plantilla para que funcione aunque se abra en otro navegador:
-   - Confirm signup: `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=signup`
-   - Invite user: `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite`
-   - Reset password: `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery`
+4. En **Authentication → Email Templates** pega el HTML de `supabase/templates/` (correos con la marca Clic). Sus enlaces ya usan `token_hash`, que funciona aunque se abran en otro navegador:
+   - Confirm signup ← `confirmar-cuenta.html` (`{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=signup`)
+   - Invite user ← `invitacion.html` (`…&type=invite`)
+   - Reset password ← `recuperar-contrasena.html` (`…&type=recovery`)
 5. Regístrate en la app y conviértete en administrador desde el SQL Editor:
    `update public.profiles set role = 'admin' where email = 'tu-correo@ejemplo.com';`
 6. Para producción, configura un SMTP propio en **Authentication → SMTP**: el correo incluido de Supabase envía muy pocos mensajes por hora.
@@ -554,12 +584,14 @@ stateDiagram-v2
 
 ```mermaid
 flowchart LR
-  A["1 · Intención"] -->|"siempre válido"| B["2 · Producto"]
-  B -->|"producto y 1 foto o más"| C["3 · Revisión"]
-  C -->|"título y llamado a la acción"| D["Crear publicación"]
-  B -.->|"al entrar a Revisión sin título:<br/>plantilla inmediata + IA"| C
-  D --> E["Mis publicaciones + Editor"]
+  A["1 · Tu producto"] -->|"1 foto o más y nombre"| B["2 · Para qué es"]
+  B -->|"siempre válido"| C["3 · Tu mensaje"]
+  C -->|"título y frase final"| D["Crear mi publicación"]
+  B -.->|"al entrar a Tu mensaje sin título:<br/>plantilla inmediata + IA"| C
+  D --> E["Mis publicaciones + Tu publicación"]
 ```
+
+Los pasos ya completados se marcan en menta y se puede volver a ellos con un toque.
 
 ---
 
@@ -577,7 +609,7 @@ sequenceDiagram
   participant GN as /api/generate
   participant IDB as IndexedDB
 
-  E->>CF: elige intención, producto y fotos
+  E->>CF: sube fotos, nombra el producto y elige para qué es
   CF->>CF: suggestCopy() plantilla inmediata
   CF->>CP: copyRequest (sin fotos)
   CP-->>CF: textos por red o error
@@ -633,9 +665,10 @@ sequenceDiagram
 
 ### 11.3 Descargar y compartir
 
-- **Descargar las 3**: por cada red usa la imagen generada si existe; si no, renderiza la maqueta con `renderDesign({ ...design, format: red })` y descarga un PNG.
-- **Solo [red]**: descarga la vista previa actual.
+- **Guardar las 3 imágenes** (en *Todas las redes a la vez*): por cada red usa la imagen generada si existe; si no, renderiza la maqueta con `renderDesign({ ...design, format: red })` y descarga un PNG.
+- **Guardar imagen** (en *Usar en [red]*): descarga la vista previa de la red abierta.
 - **Compartir**: usa Web Share con archivos cuando el navegador lo permite; si no, descarga la imagen y explica cómo enviarla.
+- **Copiar texto**: copia el texto de la red abierta; *Escribir otro* pide otra versión a la IA.
 
 ---
 
@@ -832,6 +865,7 @@ Copia `.env.example` como `.env.local` (ignorado por git) y reinicia `npm run de
 | `NEXT_PUBLIC_SUPABASE_URL` | **sí** | URL del proyecto de Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **sí** | Clave pública (`anon` o *publishable*); RLS decide qué puede ver |
 | `SUPABASE_SERVICE_ROLE_KEY` | para el panel admin | Invitar y suspender cuentas. Solo servidor: nunca con prefijo `NEXT_PUBLIC_` |
+| `NEXT_PUBLIC_GOOGLE_AUTH` | no | `true` muestra *Continuar con Google*. Actívalo solo después de configurar Google en Supabase ([sección 8](#activar-google)) |
 | `GROQ_API_KEY` | recomendada | Textos con IA (plan gratuito) |
 | `GROQ_MODEL` | no | Por defecto `openai/gpt-oss-120b`; `openai/gpt-oss-20b` es más rápido |
 | `XAI_API_KEY` | no | Textos con Grok como respaldo |
@@ -854,8 +888,10 @@ Requisitos: **Node.js ≥ 24.15** (`.nvmrc` indica 24.21.0) y, para imágenes y 
 ```bash
 npm install
 cp .env.example .env.local   # completa las claves que tengas
-npm run dev                  # http://localhost:3000
+npm run dev -- -p 3005       # http://localhost:3005
 ```
+
+Usa el puerto **3005**: es el que está registrado en Supabase (*Site URL* y *Redirect URLs*) y en Google. Con otro puerto, los enlaces de correo y el regreso de Google apuntan a una dirección que no responde.
 
 | Comando | Qué hace |
 |---|---|
@@ -864,13 +900,14 @@ npm run dev                  # http://localhost:3000
 | `npm start` | Sirve la compilación |
 | `npm run lint` | ESLint |
 | `npm test` | Pruebas de `tests/*.test.cjs` (node:test) |
+| `npm run check:rls` | Prueba de seguridad contra el Supabase real (ver [9.4](#94-puesta-en-marcha-de-supabase)) |
 
 Si el `npm` global de Windows falla, los ejecutables locales funcionan directo:
 
 ```bash
-node node_modules/next/dist/bin/next dev
+node node_modules/next/dist/bin/next dev -p 3005
 node node_modules/typescript/bin/tsc --noEmit --incremental false
-node --test tests/studio.test.cjs tests/copy.test.cjs
+node --test
 ```
 
 > Este proyecto usa **Next.js 16**, con cambios respecto a versiones anteriores. Antes de tocar convenciones del framework, revisa `node_modules/next/dist/docs/` (ver `AGENTS.md`).
@@ -886,6 +923,8 @@ node --test tests/studio.test.cjs tests/copy.test.cjs
 - **Contratos compatibles.** Al ampliar `generationPayload` o `publishPayload`, añadir campos sin quitar los existentes (n8n puede depender de ellos).
 - **Textos al usuario en español claro**, sin nombres de servicios ni jerga técnica.
 - **Diseño adaptable:** columnas de cuadrícula con `minmax(0, …)` y prueba en 375 px.
+- **Colores de la marca Clic** (ver [7.2](#72-decisiones-de-implementación)); nada de colores nuevos sin pasar por `src/theme.ts`.
+- **Commits** en español, en imperativo y describiendo el cambio ("Agrega inicio de sesión con Google").
 
 ### 17.2 Recetas
 
@@ -912,7 +951,9 @@ node --test tests/studio.test.cjs tests/copy.test.cjs
 
 | Qué | Cómo |
 |---|---|
-| Lógica de negocio y contratos | `npm test` (20 pruebas: preferencias, migración de perfiles, intenciones, estilos, contratos, textos por red, proveedores de IA) |
+| Lógica de negocio y contratos | `npm test` (28 pruebas: preferencias, migración de perfiles, intenciones, estilos, contratos, textos por red, proveedores de IA, medios de Storage y seguridad) |
+| Permisos en Supabase | `npm run check:rls` (21 intentos de acceso indebido con dos cuentas temporales) |
+| Pantallas con sesión iniciada | `node scripts/test-user.mjs create`, entrar con los datos de `.env.test.local` y `node scripts/test-user.mjs delete` al terminar |
 | Tipos | `npm run build` o `tsc --noEmit` |
 | Textos con IA sin gastar cuota | Apuntar `GROQ_API_URL` a un servidor local que responda como la API de chat de OpenAI |
 | Flujo completo | Ver [sección 22](#22-demostración) |
@@ -926,15 +967,22 @@ node --test tests/studio.test.cjs tests/copy.test.cjs
 |---|---|---|
 | "La redacción con IA no está configurada" | No hay `GROQ_API_KEY` ni `XAI_API_KEY`, o no se reinició el servidor | Agregar la clave en `.env.local` y reiniciar `npm run dev` |
 | "La redacción con IA no está disponible en este momento" | Groq llegó a su límite diario, la clave es inválida o hay caída | Revisar la consola del servidor (`Groq rechazó la solicitud…`); agregar `XAI_API_KEY` como respaldo |
-| El texto salió con un dato que no se dio | El modelo no siempre respeta la regla | Pulsar "Escribir otra versión con IA" o corregir a mano; reportar el caso para ajustar el prompt |
+| El texto salió con un dato que no se dio | El modelo no siempre respeta la regla | Pulsar *Escribir otro texto* (o *Escribir otro* en el editor) o corregir a mano; reportar el caso para ajustar el prompt |
 | "El generador con IA no está disponible en este momento" | n8n no está corriendo o la URL del webhook es incorrecta | Levantar n8n y revisar `N8N_GENERATE_WEBHOOK_URL`; mientras tanto se usa la maqueta |
 | "La generación tardó demasiado" | El workflow no marcó el trabajo como `completed` en 3 min | Revisar la ejecución en n8n |
 | Las 3 versiones muestran la misma imagen generada | El workflow devuelve `finalUrl` en vez de `finalUrls` | Actualizar el workflow (ver [sección 14](#14-workflows-de-n8n)) |
 | "El servicio de publicación no está disponible" | No existe el workflow `creamas-publish` o n8n está apagado | Crear e importar el workflow de publicación |
 | "Publicar aquí" deshabilitado | La red no tiene cuenta en Mi negocio, o falta foto o título | Completar Redes conectadas o la publicación |
-| "Correo o contraseña incorrectos" | Cuenta inexistente en este navegador | Las cuentas son locales: créalas desde el panel de administración en el mismo navegador |
-| No aparecen mis publicaciones en otro equipo | Los datos viven en el IndexedDB de cada navegador | Esperado en esta versión |
-| "No se pudo guardar…" | Almacenamiento lleno o bloqueado (modo privado) | Liberar espacio o usar una ventana normal |
+| "Correo o contraseña incorrectos" | La cuenta no existe, no confirmó su correo o se creó con Google | Registrarse, confirmar el correo, o usar *Continuar con Google* |
+| No aparece *Continuar con Google* | `NEXT_PUBLIC_GOOGLE_AUTH` no es `true` o no se reinició el servidor | Cambiar `.env.local` y reiniciar |
+| "No se pudo entrar con Google" | La persona canceló, la cuenta no es usuario de prueba de la app de Google, o falta la URL en *Redirect URLs* de Supabase | Revisar [Activar Google](#activar-google), pasos 4 y 6 |
+| Google dice `redirect_uri_mismatch` | La URI de Google Cloud no es `https://<proyecto>.supabase.co/auth/v1/callback` | Corregirla en Credenciales → ID de cliente |
+| "El enlace venció o ya se usó" | El enlace del correo ya se abrió o pasó su plazo | Iniciar sesión si ya se confirmó; si no, pedir otro |
+| El enlace del correo abre una página que no carga | La app no corre en el puerto de *Site URL* | Arrancar con `-p 3005` (ver [sección 16](#16-ejecución-local)) |
+| "Falta configurar Supabase" | Faltan `NEXT_PUBLIC_SUPABASE_URL` o `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Completar `.env.local` y reiniciar |
+| No veo el panel de administración | La cuenta tiene rol `entrepreneur` | Ejecutar el `update` de [9.4](#94-puesta-en-marcha-de-supabase), paso 5, y volver a entrar |
+| El borrador a medias no aparece en otro equipo | El borrador en curso vive en el IndexedDB de cada navegador; lo creado sí está en Supabase | Esperado: terminar la publicación para que se guarde en la cuenta |
+| "No se pudo guardar…" | Sin conexión con Supabase, o almacenamiento del navegador lleno o bloqueado (modo privado) | Revisar la conexión; usar una ventana normal |
 | Cambios en `.env.local` sin efecto | Next lee las variables al arrancar | Reiniciar el servidor de desarrollo |
 
 ---
@@ -950,7 +998,7 @@ node --test tests/studio.test.cjs tests/copy.test.cjs
 | **Credenciales de Meta solo en n8n** | La app solo guarda el nombre de la cuenta y si la publicación es automática. |
 | **Token compartido con n8n** | `x-creamas-token` en cada webhook (n8n debe validarlo). |
 | **Validación de la IA** | La respuesta del modelo se valida contra un esquema JSON estricto y se recorta antes de mostrarse. |
-| **Autenticación real** | Supabase Auth: contraseñas con hash, confirmación por correo, recuperación e invitaciones. |
+| **Autenticación real** | Supabase Auth: contraseñas con hash, confirmación por correo, recuperación, invitaciones y Google (OAuth con PKCE; el secreto de Google vive solo en Supabase). |
 | **Datos separados por usuario** | RLS en Postgres y en Storage; cuentas suspendidas sin acceso. Detalle en [9.3](#93-seguridad). |
 | **Rutas `/api` protegidas** | Sesión obligatoria, propiedad de la publicación y límite por usuario. |
 | **Auditoría** | `activity_log`, de solo lectura para el cliente. |
@@ -962,7 +1010,8 @@ node --test tests/studio.test.cjs tests/copy.test.cjs
 | **Límite en memoria** | `rate-limit.ts` cuenta por proceso: con varias instancias cada una lleva su cuenta. | Moverlo a Postgres o Redis al escalar (módulo 12, control de consumo). |
 | **Tokens de Meta** | Aún viven en n8n; no hay tabla cifrada de credenciales por negocio. | Módulos 5 y 6 (OAuth de Meta y credenciales cifradas). |
 | **Archivos huérfanos** | Al borrar un negocio o una publicación, sus imágenes quedan en Storage. | Tarea periódica que borre rutas sin referencia. |
-| **Claves compartidas por chat** | La clave de Groq del entorno local se compartió por chat durante el desarrollo. | Revocarla y crear otra antes de producción. |
+| **Claves compartidas por chat** | La clave de Groq y la `service_role` de Supabase del entorno local se compartieron por chat durante el desarrollo. | Revocarlas y crear otras antes de producción. |
+| **App de Google en modo prueba** | Solo entran los usuarios de prueba registrados. | Publicar la app de Google y agregar la URL de producción antes del lanzamiento. |
 | **Contenido generado por IA** | Puede contener afirmaciones no verificadas. | El emprendedor revisa siempre antes de publicar; la publicación automática solo ocurre en redes activadas a propósito. |
 
 ---
@@ -991,7 +1040,7 @@ node --test tests/studio.test.cjs tests/copy.test.cjs
 - **WhatsApp** no permite publicar estados por API.
 - **Groq gratuito** tiene límites diarios; con mucho uso hay que pasar a pago o usar el respaldo.
 - **La IA de texto** a veces inventa detalles pese a las reglas: siempre requiere revisión humana.
-- **Programar publicaciones** y **pedir cambios a la IA de imágenes** se guardan, pero aún no se ejecutan ("Próximamente").
+- **Programar publicaciones** y **pedir cambios a la IA de imágenes** se quitaron del editor para simplificarlo. Los campos `schedule` y `edits` siguen en `Design` y en `generationPayload()`, y Mis publicaciones aún muestra las que tenían fecha.
 
 ### 20.3 Deuda técnica y comportamientos conocidos
 
@@ -1006,10 +1055,21 @@ node --test tests/studio.test.cjs tests/copy.test.cjs
 | 7 | **Identificadores técnicos con el nombre anterior** (`creamas-*`, `x-creamas-token`, base `impulsa-studio`) | Solo de nombre. | Renombrarlos a la vez en la app y en n8n. |
 | 8 | **Sin pruebas de componentes ni de las rutas** | Regresiones visuales o de integración. | Pruebas de rutas con proveedores simulados y pruebas de UI. |
 | 9 | **Polling sin cola** | Solo se sigue una generación a la vez. | Seguir varios `ticket_id` o recibir el resultado por webhook. |
+| 10 | **Colores escritos en los componentes** | Varios `sx` usan hex de la marca directamente en lugar de `theme.palette`. | Pasarlos a `src/theme.ts`. |
 
-### 20.4 Trabajo futuro
+### 20.4 Hoja de ruta
 
-OAuth de Meta y credenciales cifradas por negocio, workflow de publicación con Meta, generación de las tres versiones en n8n, calendario de publicaciones, ejemplos de posts reales por rubro para el prompt y métricas de uso por empresa.
+Los 22 módulos del proyecto se trabajan en sprints de una semana. Las fechas límite son las de la planilla de módulos.
+
+| Sprint | Fechas | Módulos | Estado |
+|---|---|---|---|
+| Base | hasta 29 oct 2026 | 1 Autenticación, 2 Base de datos, 3 Usuarios, 4 Negocios, 13 Multimedia, 16 Seguridad | Hecho (falta rotar claves) |
+| 1 | 30 oct – 5 nov | 5 OAuth de Meta, 6 Credenciales cifradas, 7 n8n, 8 IA (consumo y errores), 9 Programación | 7 y 8 en curso |
+| 2 | 6 – 12 nov | 10 Planes y suscripciones, 11 Pasarela de pagos, 12 Control de consumo | Pendiente |
+| 3 | 13 – 19 nov | 14 Panel admin completo, 15 Notificaciones, 17 Despliegue en VPS Hostinger, 18 Monitoreo y respaldos, 19 Pruebas, 20 UX, 21 Legal | 14 y 20 en parte |
+| Piloto | desde 20 nov | 22 Piloto comercial | Pendiente |
+
+La revisión de la app por Meta (permisos `instagram_content_publish` y `pages_manage_posts`) puede tardar semanas y exige una política de privacidad publicada: conviene enviarla al inicio del sprint 1.
 
 ---
 
@@ -1057,18 +1117,18 @@ Las de la [sección 20](#20-decisiones-límites-y-deuda-técnica): OAuth de Meta
 ```bash
 npm install
 cp .env.example .env.local   # claves de Supabase y GROQ_API_KEY
-npm run dev
+npm run dev -- -p 3005
 ```
 
-Prepara Supabase según la [sección 9.4](#94-puesta-en-marcha-de-supabase) y crea tu cuenta desde *Regístrate*.
+Prepara Supabase según la [sección 9.4](#94-puesta-en-marcha-de-supabase) y crea tu cuenta desde *Regístrate* o con *Continuar con Google*.
 
 **Recorrido sugerido (≈ 8 min)**
 
-1. **(1 min) Mi negocio.** Cambiar los colores y mostrar cómo los tres estilos se actualizan; elegir tono y hashtags; activar Instagram con una cuenta.
-2. **(2 min) Crear publicación.** Intención *Promocionar una oferta* → producto con foto, precio y vigencia → Revisión: la IA escribe título, texto y los tres textos por red.
-3. **(1 min) Otra versión.** "Escribir otra versión con IA" para mostrar otro enfoque.
-4. **(2 min) Editor.** Recorrer las pestañas Instagram, Facebook y WhatsApp; cambiar el estilo; "Descargar las 3".
-5. **(1 min) Publicar.** Mostrar el estado por red (automática, manual, sin cuenta).
-6. **(1 min) Mis publicaciones.** Buscar, filtrar y duplicar.
+1. **(1 min) Acceso e Inicio.** Entrar con Google; mostrar el ejemplo "de tu foto a una publicación lista" y los tres pasos.
+2. **(1 min) Mi negocio.** Cambiar los colores, elegir estilo, tono y hashtags; activar Instagram con una cuenta.
+3. **(2 min) Crear publicación.** Subir la foto y el nombre → *Promocionar una oferta* → Tu mensaje: la IA escribe título, texto y los tres textos por red mientras la vista previa de la derecha se actualiza.
+4. **(1 min) Otra versión.** *Escribir otro* para mostrar otro enfoque.
+5. **(2 min) Tu publicación.** Recorrer las pestañas Instagram, Facebook y WhatsApp; Compartir y Guardar imagen; abrir *Cambiar el diseño*; *Guardar las 3 imágenes*.
+6. **(1 min) Mis publicaciones y administración.** Ver la galería; con una cuenta admin, mostrar el panel.
 
 **Consejo:** sin n8n corriendo, la app muestra la maqueta y avisa que el generador no está disponible; es el comportamiento esperado y sirve para explicar la arquitectura.
