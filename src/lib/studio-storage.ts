@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { collectStrings, dataUrlToBlob, diffRows, extensionOf, isDataImage, isMediaRef, mapStrings, mediaPath, mediaPrefix, refFromSignedUrl, sha256 } from './media';
 import { mediaBucket, supabaseUrl } from './supabase/env';
 import type { Brand, Design } from './studio';
+import { normalizeDesignScenes } from './editor/design-scenes';
 
 // El borrador en curso vive en IndexedDB (se guarda cada pocos cientos de ms y funciona sin red).
 // El negocio y Mis publicaciones viven en Supabase: tablas `businesses` y `publications`.
@@ -85,12 +86,14 @@ async function readHistory(): Promise<Design[]> {
   const { data, error } = await supabase.from('publications').select('id, design').eq('business_id', businessId).order('updated_at', { ascending: false });
   fail('No se pudo cargar Mis publicaciones.')(error);
   saved = new Map((data || []).map(row => [row.id as string, JSON.stringify(row.design)]));
-  return toDisplay((data || []).map(row => row.design as Design));
+  // Las escenas del editor visual se validan al leerlas; un diseño sin escenas se devuelve tal cual.
+  const designs = await toDisplay((data || []).map(row => row.design as Design));
+  return designs.map(withValidScenes);
 }
 
 async function writeHistory(list: Design[]) {
   const { supabase, userId, businessId } = current();
-  const rows = await Promise.all(list.map(async design => { const stored = await toStored(design); return { id: design.id, design: stored, json: JSON.stringify(stored) }; }));
+  const rows = await Promise.all(list.map(async design => { const stored = await toStored(withValidScenes(design)); return { id: design.id, design: stored, json: JSON.stringify(stored) }; }));
   const { upserts, deletes } = diffRows(saved, rows);
   if (upserts.length) {
     const changed = rows.filter(row => upserts.includes(row.id)).map(row => ({ id: row.id, business_id: businessId, owner_id: userId, title: row.design.title || row.design.product || '', status: statusOf(row.design), design: row.design, created_at: row.design.createdAt }));
@@ -119,6 +122,9 @@ async function writeBrand(brand: Brand) {
   fail('No se pudo guardar el negocio.')(error);
 }
 
+/** Valida las escenas antes de guardar y después de leer, sin tocar los diseños que no las tienen. */
+const withValidScenes = (design: Design): Design => design && typeof design === 'object' ? normalizeDesignScenes(design).design : design;
+
 function serial<T>(run: () => Promise<T>): Promise<T> {
   const next = queue.then(run, run);
   queue = next.catch(() => undefined);
@@ -136,10 +142,11 @@ export const storage = {
     const draft = await transaction<T | undefined>('readonly', s => s.get(draftKey()));
     // El borrador puede guardar URLs firmadas que ya vencieron: se vuelven a firmar al abrirlo.
     const refs = await mapStrings(draft, text => signedRef(text) !== null, async text => signedRef(text)!);
-    return toDisplay(refs);
+    const shown = await toDisplay(refs);
+    return (shown ? withValidScenes(shown as unknown as Design) : shown) as T | undefined;
   },
   put(key: 'brand' | 'draft' | 'history', value: Brand | Design | Design[]) {
-    if (key === 'draft') return transaction('readwrite', s => s.put(value, draftKey()));
+    if (key === 'draft') return transaction('readwrite', s => s.put(withValidScenes(value as Design), draftKey()));
     return serial(() => key === 'brand' ? writeBrand(value as Brand) : writeHistory(value as Design[]));
   },
   removeDraft: () => transaction('readwrite', s => s.delete(draftKey())),

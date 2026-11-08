@@ -1,3 +1,5 @@
+import type { Scene } from './editor/scene';
+
 export const formats = {
   instagram: { label: 'Instagram · cuadrado', width: 1080, height: 1080 },
   portrait: { label: 'Instagram · vertical', width: 1080, height: 1350 },
@@ -65,6 +67,12 @@ export type Design = {
   publications?: Partial<Record<Network, Publication>>;
   /** Texto propio de cada red (escrito con IA). Sin él, todas usan `caption`. */
   captions?: Partial<Record<Network, string>>;
+  /**
+   * Escenas editables por red (editor visual). Opcional: los diseños anteriores no las tienen y se siguen
+   * dibujando con el renderizador clásico. Los textos comerciales no se copian aquí: las capas apuntan a
+   * `title`, `body`, `price`, `validity`, `cta` y `contact` de este mismo diseño.
+   */
+  scenes?: Partial<Record<Network, Scene>>;
 };
 export const captionLimits: Record<Network, number> = { instagram: 2200, facebook: 2000, whatsapp: 700 };
 export function captionFor(d: Pick<Design, 'caption' | 'captions'>, network: Network) {
@@ -81,7 +89,11 @@ function structuredCopy(brand: Brand): Brand {
 }
 export function duplicateDesign(design: Design): Design {
   const now = new Date().toISOString();
-  return { ...design, id: crypto.randomUUID(), createdAt: now, updatedAt: now, title: design.title + ' · copia', requests: [], schedule: null, generation: undefined, publications: undefined };
+  // La copia no comparte objetos con el original: la marca y las escenas se clonan (son JSON puro).
+  return { ...design, id: crypto.randomUUID(), createdAt: now, updatedAt: now, title: design.title + ' · copia', brand: cloneJson(design.brand), scenes: design.scenes ? cloneJson(design.scenes) : undefined, requests: [], schedule: null, generation: undefined, publications: undefined };
+}
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
 }
 export function suggestCopy(d: Design, variant = 0) {
   const names = [d.product, `Descubre ${d.product}`, `${d.product}, para ti`];
