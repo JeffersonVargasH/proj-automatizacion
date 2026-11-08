@@ -189,8 +189,9 @@ export default function Studio({ currentUser, businesses, activeBusinessId, onSw
       mark({ status: 'sending', at: new Date().toISOString() });
       try {
         const generated = design.generation?.status === 'completed' ? design.generation.urls[network] : undefined;
-        // Meta descarga la imagen por URL: la maqueta se sube a Storage y se comparte con un enlace firmado.
-        const image = await shareableUrl(generated || (await renderDesign({ ...design, format: network })).toDataURL('image/png'));
+        // La imagen generada se compone con el logo y los textos de la publicación (renderDesign) y,
+        // como Meta descarga la imagen por URL, se sube a Storage y se comparte con un enlace firmado.
+        const image = await shareableUrl((await renderDesign({ ...design, format: network }, generated)).toDataURL('image/png'));
         const response = await fetch('/api/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(publishPayload(design, network, account.trim(), image)) });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || 'No se pudo publicar.');

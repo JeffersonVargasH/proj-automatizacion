@@ -16,6 +16,7 @@ const titles = ['¿Qué quieres publicar?', '¿Para qué es esta publicación?',
 const descriptions = ['Sube una foto y escribe qué es. Con eso basta para empezar.', 'Toca la opción que más se parezca a lo que buscas.', 'Escribimos el texto por ti. Puedes cambiar cualquier palabra.'];
 const tips = ['Usa una foto con buena luz y el producto al centro.', 'Esto ayuda a escribir el mensaje justo para tu objetivo.', 'Frases cortas se leen mejor en el celular.'];
 const intentHelp: Record<string, { hint: string; icon: typeof ShoppingBag }> = {
+  'Flyer publicitario': { hint: 'Atrae clientes y visitas', icon: Storefront },
   'Vender un producto': { hint: 'Que te compren', icon: ShoppingBag },
   'Anunciar una novedad': { hint: 'Algo nuevo que llegó', icon: NewReleases },
   'Promocionar una oferta': { hint: 'Descuento o 2x1', icon: LocalOffer },
@@ -106,7 +107,8 @@ export function CreateFlow({ design: d, update, step, setStep, onCreate }: { des
         {step === 1 && <Box sx={card}><Stack spacing={3}>
           <Box role="radiogroup" aria-label="Para qué es la publicación" sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 1.25 }}>{intents.map(intent => {
             const selected = intentOf(d).label === intent.label;
-            const { hint, icon: Icon } = intentHelp[intent.label];
+            // Si se agrega una intención sin ícono propio, se usa su descripción en lugar de romper la pantalla.
+            const { hint, icon: Icon } = intentHelp[intent.label] ?? { hint: intent.desc, icon: Campaign };
             return <Card key={intent.label} variant="outlined" sx={{ borderRadius: '16px', borderWidth: 2, borderColor: selected ? 'primary.main' : 'transparent', bgcolor: selected ? 'background.paper' : '#F7F8FA', boxShadow: selected ? '0 0 0 4px rgba(47,91,255,.12)' : 'none' }}><CardActionArea role="radio" aria-checked={selected} onClick={() => update({ type: intent.type, objective: intent.objective })} sx={{ p: 1.75, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
               <Stack direction="row" justifyContent="space-between" sx={{ width: '100%' }}><Box sx={{ width: 38, height: 38, borderRadius: '11px', display: 'grid', placeItems: 'center', bgcolor: selected ? 'primary.main' : '#EEF3FF', color: selected ? '#FFFFFF' : 'primary.main' }}><Icon fontSize="small" /></Box>{selected && <CheckCircle color="primary" fontSize="small" />}</Stack>
               <Box><Typography fontWeight={650} fontSize=".95rem" sx={{ lineHeight: 1.25 }}>{intent.label}</Typography><Typography variant="body2" color="text.secondary">{hint}</Typography></Box>

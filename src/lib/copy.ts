@@ -4,6 +4,7 @@ import { captionLimits, Design, intentOf, Network } from './studio';
 // Ambos proveedores usan el formato de chat de OpenAI. Groq va primero porque tiene plan gratuito.
 export const copyProviders = {
   groq: { label: 'Groq', url: 'https://api.groq.com/openai/v1/chat/completions', keyEnv: 'GROQ_API_KEY', model: 'openai/gpt-oss-120b', extra: { reasoning_effort: 'low' } },
+  openai: { label: 'OpenAI', url: 'https://api.openai.com/v1/chat/completions', keyEnv: 'OPENAI_API_KEY', model: 'gpt-4o-mini', extra: {} },
   xai: { label: 'Grok (xAI)', url: 'https://api.x.ai/v1/chat/completions', keyEnv: 'XAI_API_KEY', model: 'grok-4.20-0309-non-reasoning', extra: {} },
 } as const;
 export type CopyProvider = keyof typeof copyProviders;

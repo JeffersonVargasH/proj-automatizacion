@@ -133,7 +133,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const primaryImage = String($('Initialize Web Job').first().json.primaryImage ?? '');\nconst match = primaryImage.match(/^data:([^;]+);base64,(.+)$/s);\nif (!match) {\n  throw new Error('La imagen de referencia no tiene un formato data URL válido.');\n}\nreturn [{\n  json: $json,\n  binary: {\n    reference: {\n      data: match[2],\n      mimeType: match[1],\n      fileName: 'reference-image',\n    },\n  },\n}];"
+        "jsCode": "const job = $('Initialize Web Job').first().json;\nconst primaryImage = String(job.primaryImage ?? '');\nconst match = primaryImage.match(/^data:([^;]+);base64,(.+)$/s);\nif (!match) {\n  throw new Error('La imagen de referencia no tiene un formato data URL válido.');\n}\nreturn [{\n  json: {\n    ...$json,\n    job: job,\n  },\n  binary: {\n    reference: {\n      data: match[2],\n      mimeType: match[1],\n      fileName: 'reference-image',\n    },\n  },\n}];"
       },
       "id": "creamas-prepare-edit-binary",
       "name": "Attach Reference for Edit",
@@ -147,43 +147,23 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.openai.com/v1/images/edits",
+        "url": "https://api.openai.com/v1/images/generations",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Authorization",
               "value": "={{ 'Bearer ' + $env.OPENAI_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
         "sendBody": true,
-        "contentType": "multipart-form-data",
-        "bodyParameters": {
-          "parameters": [
-            {
-              "parameterType": "formBinaryData",
-              "name": "image",
-              "inputDataFieldName": "reference"
-            },
-            {
-              "name": "model",
-              "value": "dall-e-2"
-            },
-            {
-              "name": "prompt",
-              "value": "={{ $('Generate Image Prompt').item.json.output.image_prompt + '\\n\\nFINAL GRAPHIC INSTRUCTION: Generate a highly professional, visually stunning advertisement image. Compose the uploaded product as the hero element with perfect lighting and integration into the scene. Do not use cheap decorative shapes or cluttered infographic elements. Keep the aesthetic premium, clean, and modern. Seamlessly and elegantly integrate the following text into the composition using a high-end, minimalist typography style. Reproduce the copy EXACTLY: Title: ' + ($('Initialize Web Job').item.json.copy.title || '') + '; Description: ' + ($('Initialize Web Job').item.json.copy.body || '') + '; Price: ' + ($('Initialize Web Job').item.json.product.price || '') + '; Call to action: ' + ($('Initialize Web Job').item.json.copy.cta || '') + '; Contact: ' + ($('Initialize Web Job').item.json.product.contact || $('Initialize Web Job').item.json.content.contact || '') + '. Preserve the exact product appearance. The final result must look like a top-tier brand campaign.' }}"
-            },
-            {
-              "name": "size",
-              "value": "1024x1024"
-            },
-            {
-              "name": "n",
-              "value": "1"
-            }
-          ]
-        },
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => {\n  const job = $json.job || (typeof $('Initialize Web Job') !== 'undefined' && $('Initialize Web Job').first ? $('Initialize Web Job').first().json : null) || {};\n  const visionDesc = $json.output?.image_prompt || '';\n  const type = job.content?.type || 'Flyer publicitario';\n  const style = job.content?.style || 'Moderno';\n  const format = job.content?.format || 'Instagram';\n  const brandName = job.business?.name || '';\n  const brandPrimary = job.business?.primary || '';\n  const brandSecondary = job.business?.secondary || '';\n  const productName = job.product?.name || '';\n  const productDesc = job.product?.description || '';\n  const price = job.product?.price || '';\n  const validity = job.content?.validity || job.product?.validity || '';\n  const contact = job.content?.contact || job.product?.contact || '';\n  const title = job.copy?.title || '';\n  const body = job.copy?.body || '';\n  const cta = job.copy?.cta || '';\n  const instructions = job.content?.instructions || '';\n\n  const prompt = [\n    'Professional advertising agency commercial promotional flyer poster for social media (' + format + '), ' + style.toLowerCase() + ' aesthetic.',\n    '',\n    'CRITICAL MANDATORY REQUIREMENT - SPANISH TYPOGRAPHY & GRAPHIC LAYOUT:',\n    'This is a finished promotional marketing flyer designed for a Latin American audience in SPANISH.',\n    'ABSOLUTE LANGUAGE RULE: ALL GRAPHICAL TEXT AND TYPOGRAPHY MUST BE 100% IN SPANISH ONLY. NEVER WRITE IN ENGLISH UNDER ANY CIRCUMSTANCES.',\n    '',\n    'CRITICAL MANDATORY SAFE MARGINS & TOP HEADROOM (NEVER CUT OFF TEXT):',\n    '- Leave generous, clean headroom at the top (at least 16% to 20% canvas height margin from the top edge).',\n    '- The main headline and letters MUST NEVER touch, collide with, or be cropped by the top border of the canvas. The tops of all capital letters and accent marks must be 100% visible with plenty of breathing room above them.',\n    '- Keep all typography, price badges, and buttons comfortably inside the inner safe margins (minimum 12% to 15% padding from all outer borders).',\n    '- Leave clean, uncluttered breathing space at the top-left or top-center where the brand logo sits.',\n    '',\n    'You MUST render the following promotional elements clearly integrated into the design layout:',\n    title ? '1. MAIN HEADLINE IN SPANISH: \"' + title + '\" in bold, elegant, prominent advertising typography, positioned comfortably below the top safe margin (never touching the top edge).' : '',\n    body ? '2. SUBTITLE / BENEFIT TEXT: \"' + body + '\" in clean, highly readable typography.' : '',\n    price ? '3. HIGHLIGHTED PRICE BADGE: A prominent, stylish modern graphical badge or sticker displaying \"' + price + '\".' : '',\n    validity ? '4. PROMOTION VALIDITY: \"Válido: ' + validity + '\".' : '',\n    cta ? '5. CALL-TO-ACTION BUTTON GRAPHIC: A sleek commercial button displaying \"' + cta + ' >\" near the bottom.' : '',\n    contact ? '6. CONTACT INFO: \"' + contact + '\".' : '',\n    brandName ? '7. BRAND IDENTITY: \"' + brandName + '\" integrated cleanly with breathing room for the company logo at the top.' : '',\n    (brandPrimary || brandSecondary) ? '- Color palette accents: ' + [brandPrimary, brandSecondary].filter(Boolean).join(', ') + '.' : '',\n    instructions ? '- Special instructions: ' + instructions : '',\n    '',\n    'PRODUCT HERO & COMPOSITION:',\n    'The visual hero is ' + (productName || 'the product') + '. Detailed and showcased as: ' + (visionDesc || productDesc || productName) + '. It must look crisp, ultra-detailed, and premium with professional commercial studio lighting.',\n    'Commercial flyer composition: balanced advertising poster, generous headroom, high contrast, clean typography 100% legible in Spanish. Do NOT leave the image blank without the specified Spanish text.'\n  ].filter(Boolean).join('\\n');\n\n  return JSON.stringify({\n    model: 'chatgpt-image-latest',\n    prompt,\n    size: '1024x1024',\n    quality: 'high'\n  });\n})() }}",
         "options": {
           "response": {
             "response": {

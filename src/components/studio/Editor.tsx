@@ -32,10 +32,8 @@ export function Editor({ design: d, update, notify, connections, onPublish, onCo
     let live = true;
     let url = '';
     const timer = setTimeout(() => {
-      const result = generatedImageUrl
-        ? fetch(generatedImageUrl).then(response => { if (!response.ok) throw new Error('No se pudo cargar la imagen generada.'); return response.blob(); })
-        : renderDesign(d).then(pngBlob);
-      void result.then(blob => { if (!live) return; const previewUrl = generatedImageUrl || (url = URL.createObjectURL(blob)); setPreview({ url: previewUrl, blob, design: d }); setRenderState({ design: d, error: '', rendering: false }); }).catch(reason => { if (live) setRenderState({ design: d, error: reason instanceof Error ? reason.message : 'No se pudo generar la vista previa.', rendering: false }); });
+      const result = renderDesign(d, generatedImageUrl).then(pngBlob);
+      void result.then(blob => { if (!live) return; const previewUrl = (url = URL.createObjectURL(blob)); setPreview({ url: previewUrl, blob, design: d }); setRenderState({ design: d, error: '', rendering: false }); }).catch(reason => { if (live) setRenderState({ design: d, error: reason instanceof Error ? reason.message : 'No se pudo generar la vista previa.', rendering: false }); });
     }, 100);
     return () => { live = false; clearTimeout(timer); if (url) URL.revokeObjectURL(url); };
   }, [d, generatedImageUrl, retry]);
@@ -44,7 +42,8 @@ export function Editor({ design: d, update, notify, connections, onPublish, onCo
   const renderError = renderState?.design === d ? renderState.error : '';
   const ready = !!preview && preview.design === d && !rendering && !renderError;
   const filename = `${d.product.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 50) || 'publicacion'}-${d.format}.png`;
-  const finalFilename = generatedImageUrl ? filename.replace(/\.png$/, '.jpg') : filename;
+  // La vista previa siempre es un PNG compuesto (también con imagen de IA), así que el archivo es .png.
+  const finalFilename = filename;
   const label = networks[active]?.label || 'esta red';
 
   async function share() {
@@ -62,8 +61,8 @@ export function Editor({ design: d, update, notify, connections, onPublish, onCo
     try {
       for (const network of outputs) {
         const url = generation?.status === 'completed' ? generation.urls[network] : undefined;
-        const blob = url ? await fetch(url).then(response => response.blob()) : await renderDesign({ ...d, format: network }).then(pngBlob);
-        downloadBlob(blob, filename.replace(`-${d.format}.png`, `-${network}.${url ? 'jpg' : 'png'}`));
+        const blob = await renderDesign({ ...d, format: network }, url).then(pngBlob);
+        downloadBlob(blob, filename.replace(`-${d.format}.png`, `-${network}.png`));
       }
       notify('Guardamos las versiones para Instagram, Facebook y WhatsApp.');
     } catch { notify('No se pudieron descargar todas las versiones. Inténtalo de nuevo.', true); }
