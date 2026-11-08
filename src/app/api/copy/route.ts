@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { allow, limits } from '@/lib/rate-limit';
+import { requireUser } from '@/lib/supabase/server';
 import { availableProviders, Copy, copyMessages, CopyRequest, copySchema, sanitizeCopy } from '@/lib/copy';
 
 type Provider = ReturnType<typeof availableProviders>[number];
@@ -38,6 +40,9 @@ async function ask(provider: Provider, messages: ReturnType<typeof copyMessages>
 }
 
 export async function POST(request: Request) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+  if (!allow(`copy:${guard.caller.user.id}`, limits.copy.max, limits.copy.windowMs)) return NextResponse.json({ error: 'Pediste muchos textos seguidos. Espera unos minutos.' }, { status: 429 });
   const providers = availableProviders(process.env);
   if (!providers.length) return NextResponse.json({ error: 'La redacción con IA no está configurada.' }, { status: 503 });
   let input: CopyRequest;

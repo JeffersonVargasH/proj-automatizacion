@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
+import { requireUser } from '@/lib/supabase/server';
 
 const STATUS_WEBHOOK_URL = process.env.N8N_STATUS_WEBHOOK_URL || 'http://localhost:5678/webhook/status';
 
 export async function GET(request: Request) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
   const ticketId = new URL(request.url).searchParams.get('ticket_id');
   if (!ticketId) return NextResponse.json({ error: 'Falta ticket_id.' }, { status: 400 });
 

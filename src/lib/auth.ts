@@ -1,114 +1,78 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 export type UserRole = 'admin' | 'entrepreneur';
+export type AccountStatus = 'active' | 'suspended';
 
-export type AppUser = {
-  id: string;
-  name: string;
-  email: string;
-  business: string;
-  role: UserRole;
-  status: 'active' | 'pending';
-};
+export type AppUser = { id: string; name: string; email: string; role: UserRole; status: AccountStatus; createdAt?: string };
+export type BusinessSummary = { id: string; name: string };
+export type Activity = { id: number; action: string; entity: string; entity_id: string | null; details: Record<string, string>; created_at: string; actor_id: string | null };
 
-type LocalAccount = AppUser & { password: string };
+export const minPassword = 8;
 
-export type AppSession = { user: AppUser };
-
-const USERS_KEY = 'clic-local-users-v1';
-const SESSION_KEY = 'clic-local-session-v1';
-
-const demoAccounts: LocalAccount[] = [
-  { id: 'demo-admin', name: 'Administrador Clic', email: 'admin@clic.local', business: 'Clic', role: 'admin', status: 'active', password: 'demo1234' },
-  { id: 'demo-entrepreneur', name: 'Empresario demo', email: 'empresario@clic.local', business: 'Mi negocio demo', role: 'entrepreneur', status: 'active', password: 'demo1234' },
-];
-
-function browserStorage(): Storage | null {
-  return typeof window === 'undefined' ? null : window.localStorage;
+/** Mensajes de Supabase Auth traducidos a algo que el usuario entienda. */
+export function authMessage(message = ''): string {
+  if (/invalid login credentials/i.test(message)) return 'Correo o contraseña incorrectos.';
+  if (/email not confirmed/i.test(message)) return 'Confirma tu correo antes de ingresar. Revisa tu bandeja de entrada.';
+  if (/already registered|already been registered|user already exists/i.test(message)) return 'Ese correo ya tiene una cuenta. Inicia sesión o recupera tu contraseña.';
+  if (/password should be|weak password|at least/i.test(message)) return `La contraseña debe tener al menos ${minPassword} caracteres, con letras y números.`;
+  if (/rate limit|too many/i.test(message)) return 'Demasiados intentos. Espera unos minutos y vuelve a intentar.';
+  if (/same.*password|different from the old/i.test(message)) return 'La nueva contraseña debe ser distinta de la anterior.';
+  if (/fetch|network/i.test(message)) return 'No hay conexión con el servidor. Revisa tu internet.';
+  return 'No se pudo completar la acción. Inténtalo de nuevo.';
 }
 
-function toPublicUser(account: LocalAccount): AppUser {
-  return Object.fromEntries(Object.entries(account).filter(([key]) => key !== 'password')) as AppUser;
+export function passwordProblem(password: string): string {
+  if (password.length < minPassword) return `Usa al menos ${minPassword} caracteres.`;
+  if (!/[a-zA-Z]/.test(password) || !/\d/.test(password)) return 'Combina letras y números.';
+  return '';
 }
 
-function readAccounts(): LocalAccount[] {
-  const storage = browserStorage();
-  if (!storage) return demoAccounts;
-  try {
-    const raw = storage.getItem(USERS_KEY);
-    if (!raw) {
-      storage.setItem(USERS_KEY, JSON.stringify(demoAccounts));
-      return demoAccounts;
-    }
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length ? parsed as LocalAccount[] : demoAccounts;
-  } catch {
-    return demoAccounts;
-  }
+export async function loadProfile(supabase: SupabaseClient, userId: string): Promise<AppUser | null> {
+  const { data } = await supabase.from('profiles').select('id, email, full_name, role, status, created_at').eq('id', userId).single();
+  return data ? toUser(data) : null;
 }
 
-function writeAccounts(accounts: LocalAccount[]) {
-  browserStorage()?.setItem(USERS_KEY, JSON.stringify(accounts));
+export function toUser(row: { id: string; email: string; full_name: string; role: UserRole; status: AccountStatus; created_at?: string }): AppUser {
+  return { id: row.id, name: row.full_name || row.email.split('@')[0], email: row.email, role: row.role, status: row.status, createdAt: row.created_at };
 }
 
-export function listUsers(): AppUser[] {
-  return readAccounts().map(toPublicUser);
+export async function listBusinesses(supabase: SupabaseClient, userId: string): Promise<BusinessSummary[]> {
+  const { data, error } = await supabase.from('businesses').select('id, name').eq('owner_id', userId).order('created_at');
+  if (error) throw new Error('No se pudieron cargar tus negocios.');
+  return data || [];
 }
 
-export function loginLocal(email: string, password: string): AppSession | null {
-  const normalizedEmail = email.trim().toLowerCase();
-  const account = readAccounts().find(item => item.email.toLowerCase() === normalizedEmail && item.password === password);
-  return account ? { user: toPublicUser(account) } : null;
+export async function createBusiness(supabase: SupabaseClient, userId: string, name: string): Promise<BusinessSummary> {
+  const clean = name.trim().slice(0, 120);
+  if (!clean) throw new Error('Escribe el nombre del negocio.');
+  const { data, error } = await supabase.from('businesses').insert({ owner_id: userId, name: clean, brand: { name: clean } }).select('id, name').single();
+  if (error || !data) throw new Error('No se pudo crear el negocio.');
+  return data;
 }
 
-export function readSession(): AppSession | null {
-  const raw = browserStorage()?.getItem(SESSION_KEY);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as AppSession;
-    return parsed?.user?.id ? parsed : null;
-  } catch {
-    return null;
-  }
+export async function deleteBusiness(supabase: SupabaseClient, id: string) {
+  const { error } = await supabase.from('businesses').delete().eq('id', id);
+  if (error) throw new Error('No se pudo eliminar el negocio.');
 }
 
-export function saveSession(session: AppSession) {
-  browserStorage()?.setItem(SESSION_KEY, JSON.stringify(session));
+const activeKey = (userId: string) => `clic-active-business:${userId}`;
+export function rememberBusiness(userId: string, id: string) { try { localStorage.setItem(activeKey(userId), id); } catch { /* opcional */ } }
+export function rememberedBusiness(userId: string): string | null { try { return localStorage.getItem(activeKey(userId)); } catch { return null; } }
+
+export async function recentActivity(supabase: SupabaseClient, limit = 20, actorId?: string): Promise<Activity[]> {
+  let query = supabase.from('activity_log').select('id, action, entity, entity_id, details, created_at, actor_id').order('created_at', { ascending: false }).limit(limit);
+  if (actorId) query = query.eq('actor_id', actorId);
+  const { data } = await query;
+  return (data || []) as Activity[];
 }
 
-export function clearSession() {
-  browserStorage()?.removeItem(SESSION_KEY);
-}
+const entities: Record<string, string> = { businesses: 'negocio', publications: 'publicación', profiles: 'cuenta', session: 'sesión', generation: 'generación con IA', publish: 'publicación en redes', copy: 'texto con IA', users: 'usuarios' };
+const actions: Record<string, string> = { insert: 'Creó', update: 'Actualizó', delete: 'Eliminó', login: 'Inició', started: 'Inició', sent: 'Envió', invited: 'Invitó a', changed: 'Cambió' };
 
-export function createLocalUser(input: Pick<AppUser, 'name' | 'email' | 'business'> & { password?: string }): AppUser {
-  const accounts = readAccounts();
-  const email = input.email.trim().toLowerCase();
-  if (!input.name.trim() || !email || !input.business.trim()) throw new Error('Completa nombre, correo y negocio.');
-  if (accounts.some(item => item.email.toLowerCase() === email)) throw new Error('Ese correo ya está registrado.');
-  const account: LocalAccount = {
-    id: `user-${crypto.randomUUID()}`,
-    name: input.name.trim(),
-    email,
-    business: input.business.trim(),
-    role: 'entrepreneur',
-    status: 'active',
-    password: input.password?.trim() || 'Bienvenido123!',
-  };
-  writeAccounts([...accounts, account]);
-  return toPublicUser(account);
-}
-
-export function importLocalUsers(csv: string): { users: AppUser[]; skipped: number } {
-  const rows = csv.split(/\r?\n/).map(row => row.trim()).filter(Boolean);
-  if (!rows.length) return { users: [], skipped: 0 };
-  const start = rows[0].toLowerCase().includes('correo') || rows[0].toLowerCase().includes('email') ? 1 : 0;
-  const created: AppUser[] = [];
-  let skipped = 0;
-  for (const row of rows.slice(start)) {
-    const [name = '', email = '', business = '', password = ''] = row.split(',').map(value => value.trim().replace(/^"|"$/g, ''));
-    try {
-      created.push(createLocalUser({ name, email, business, password }));
-    } catch {
-      skipped += 1;
-    }
-  }
-  return { users: created, skipped };
+/** Frase corta para mostrar un evento de auditoría. */
+export function describeActivity(item: Activity): string {
+  const what = entities[item.entity] || item.entity;
+  const name = item.details?.title || item.details?.name || item.details?.email || item.details?.network || '';
+  const status = item.entity === 'profiles' && item.action === 'update' ? ` (${item.details?.role === 'admin' ? 'admin' : 'emprendedor'}, ${item.details?.status === 'suspended' ? 'suspendida' : 'activa'})` : '';
+  return `${actions[item.action] || item.action} ${what}${name ? ` «${name}»` : ''}${status}`;
 }

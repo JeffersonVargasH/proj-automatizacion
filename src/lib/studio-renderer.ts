@@ -1,8 +1,10 @@
 import { Design, formats } from './studio';
 
 const photo = (src: string): Promise<HTMLImageElement> => new Promise((resolve, reject) => {
+  // Las URLs firmadas de Storage vienen de otro origen: sin crossOrigin el lienzo no se podría exportar.
+  // Las data URLs son locales y no lo necesitan.
   const img = new Image();
-  img.crossOrigin = 'anonymous';
+  if (!src.startsWith('data:')) img.crossOrigin = 'anonymous';
   img.onload = () => resolve(img);
   img.onerror = () => {
     if (src.startsWith('http')) {
