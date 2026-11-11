@@ -850,7 +850,7 @@ La carpeta `n8n/` contiene cuatro variantes importables del workflow de **genera
 | `creamas-openai-images.json` | OpenAI Vision + agente con `gpt-4.1-mini` | OpenAI `images/edits` sobre la foto de referencia | Mejor calidad; requiere `OPENAI_API_KEY` en el contenedor de n8n |
 | `creamas-web-images.json` | OpenAI Vision + agente con `gpt-4.1-mini` | Gemini (Nano Banana) | Alternativa con Gemini para la imagen |
 | `creamas-free-images.json` | Gemini 1.5 Flash | Hugging Face `instruct-pix2pix` | Pruebas sin costo, menor calidad |
-| **`creamas-flux-images.json`** | Prompt fijo, sin agentes | Together AI · FLUX.1 schnell: **solo fondo, sin texto**, 3 formatos | **Recomendado**: demo con el editor visual |
+| **`creamas-flux-images.json`** | Prompt fijo, sin agentes | Cloudflare Workers AI · FLUX.1 schnell (**gratis**, 10 000 neuronas/día): **solo fondo, sin texto** | **Recomendado**: demo con el editor visual |
 
 ```mermaid
 flowchart LR
@@ -861,20 +861,23 @@ flowchart LR
 
 **Pendientes en n8n** (la app ya está lista para ellos):
 
-1. Generar las **tres salidas** de `content.outputs` y devolver `finalUrls`. `creamas-flux-images.json` ya lo hace; los demás devuelven una sola imagen.
+1. Generar las **tres salidas** de `content.outputs` y devolver `finalUrls`. `creamas-flux-images.json` ya devuelve `finalUrls` (un fondo cuadrado que Clic encuadra por red); los demás devuelven una sola imagen.
 2. Crear el workflow **`creamas-publish`** con las credenciales de Meta: Instagram Graph API (`instagram_content_publish`, cuenta profesional vinculada a una página), Facebook Pages (`pages_manage_posts`) y WhatsApp Cloud API (mensaje con imagen a contactos que aceptaron recibirlo).
 3. Validar la cabecera `x-creamas-token` en cada webhook.
 
 Para importar: en n8n, *Import from file* → activar el workflow → conectar las credenciales indicadas en cada nodo. Las claves se configuran en n8n, nunca en los JSON ni en el frontend.
 
-### 14.1 Demo con FLUX (Together AI) y el editor visual
+### 14.1 Demo con FLUX (Cloudflare Workers AI, gratis) y el editor visual
 
-1. Crea una API key en [together.ai](https://api.together.ai/settings/api-keys).
-2. En n8n: **Credentials → Add credential → Header Auth**, nombre `Together AI`, *Name* `Authorization`, *Value* `Bearer <tu key>`. No hace falta tocar `docker-compose.yml` ni el `.env` de Next.js: la key solo vive en n8n.
-3. Importa `n8n/creamas-flux-images.json`, abre el nodo **Together AI: FLUX**, elige la credencial y **activa** el workflow. Desactiva cualquier otro que use `creamas-generate` (las rutas se repiten).
-4. En la app crea una publicación: n8n devuelve tres fondos sin texto (1024×1024, 1344×704 y 768×1344, `kind: background`) y Clic los coloca en el editor visual con la foto real del producto, el logo y los textos como capas editables. **Editar diseño** abre el editor; la vista previa, las descargas y la publicación usan esa misma escena.
+Cloudflare Workers AI incluye 10 000 neuronas diarias gratis (se renuevan a las 00:00 UTC), unas 170 imágenes de 1024×1024 al día, sin tarjeta ni depósito.
 
-El modelo se cambia en la constante `MODEL` del nodo *Initialize Job*. Si un formato falla, los demás se entregan igual y la app usa la imagen principal para el que falta.
+1. Crea una cuenta gratuita en [dash.cloudflare.com](https://dash.cloudflare.com/sign-up) y copia tu **Account ID** (32 caracteres hexadecimales; aparece en *Workers AI* o en la URL del panel).
+2. Crea una API token: **My Profile → API Tokens → Create Token →** plantilla **Workers AI**.
+3. En n8n: **Credentials → Add credential → Header Auth**, nombre `Cloudflare Workers AI`, *Name* `Authorization`, *Value* `Bearer <tu token>`. No hace falta tocar `docker-compose.yml` ni el `.env` de Next.js: la token solo vive en n8n.
+4. Importa `n8n/creamas-flux-images.json`. En el nodo **Initialize Job** reemplaza `PEGA_AQUI_TU_ACCOUNT_ID` por tu Account ID; en el nodo **Cloudflare Workers AI: FLUX** elige la credencial. Pulsa **Publish** (o activa el workflow). Desactiva cualquier otro que use `creamas-generate` (las rutas se repiten). En n8n 2.x, si vuelves a importar el mismo workflow, publícalo de nuevo: si no, sigue activa la versión anterior.
+5. En la app crea una publicación: n8n devuelve un fondo cuadrado sin texto (`kind: background`) para las tres redes y Clic lo coloca en el editor visual con la foto real del producto, el logo y los textos como capas editables. **Editar diseño** abre el editor; la vista previa, las descargas y la publicación usan esa misma escena.
+
+Errores claros en la app: falta el Account ID, credencial inválida, cuenta o modelo no encontrado y cuota diaria agotada. El modelo se cambia en la constante `MODEL` del nodo *Initialize Job*.
 
 ---
 

@@ -1,4 +1,4 @@
-// Demo E2E: fondos sin texto con FLUX (Together AI) → escenas del editor visual.
+// Demo E2E: fondos sin texto con FLUX (Cloudflare Workers AI) → escenas del editor visual.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -76,26 +76,31 @@ test('the n8n flow keeps the webhook contract used by the app', () => {
   assert.equal(node('Generate Webhook').parameters.httpMethod, 'POST');
   assert.equal(node('Status Webhook').parameters.path, 'status');
   const wiring = Object.fromEntries(Object.entries(flow.connections).map(([from, value]) => [from, value.main[0][0].node]));
-  assert.deepEqual(wiring, { 'Generate Webhook': 'Initialize Job', 'Initialize Job': 'Respond with Ticket', 'Respond with Ticket': 'Split Formats', 'Split Formats': 'Together AI: FLUX', 'Together AI: FLUX': 'Finalize Job', 'Status Webhook': 'Lookup Job', 'Lookup Job': 'Respond with Status' });
-  assert.match(node('Finalize Job').parameters.jsCode, /finalUrls/);
-  assert.match(node('Finalize Job').parameters.jsCode, /kind: 'background'/);
+  assert.deepEqual(wiring, { 'Generate Webhook': 'Initialize Job', 'Initialize Job': 'Respond with Ticket', 'Respond with Ticket': 'Split Formats', 'Split Formats': 'Cloudflare Workers AI: FLUX', 'Cloudflare Workers AI: FLUX': 'Finalize Job', 'Status Webhook': 'Lookup Job', 'Lookup Job': 'Respond with Status' });
+  const finalize = node('Finalize Job').parameters.jsCode;
+  assert.match(finalize, /kind: 'background'/);
+  assert.ok(finalize.includes('finalUrls: finalUrl ? { instagram: finalUrl, facebook: finalUrl, whatsapp: finalUrl }'), 'one square image for the three networks');
+  assert.ok(finalize.includes('result?.image'));
+  assert.match(finalize, /cuota gratuita diaria/, 'quota errors are explained');
 });
 
-test('the n8n flow asks FLUX for text-free backgrounds in the three formats', () => {
+test('the n8n flow asks FLUX on Cloudflare for a text-free background', () => {
   const init = node('Initialize Job').parameters.jsCode;
   assert.match(init, /Absolutely no text of any kind/);
   assert.match(init, /do not show the product itself/);
-  for (const [w, h] of [[1024, 1024], [1344, 704], [768, 1344]]) assert.match(init, new RegExp(`width: ${w}, height: ${h}`));
-  for (const network of ['instagram', 'facebook', 'whatsapp']) assert.match(init, new RegExp(`network: '${network}'`));
-  assert.match(init, /black-forest-labs\/FLUX\.1-schnell/);
+  assert.ok(init.includes("const MODEL = '@cf/black-forest-labs/flux-1-schnell'"));
+  assert.ok(init.includes("'/accounts/' + ACCOUNT_ID + '/ai/run/' + MODEL"));
+  assert.match(init, /const ACCOUNT_ID = 'PEGA_AQUI_TU_ACCOUNT_ID'/, 'the repo copy has no real account');
+  assert.match(init, /Falta configurar el Account ID/);
+  assert.match(init, /slice\(0, 2048\)/, 'prompt fits the API limit');
 });
 
-test('the API key lives in an n8n credential, never in the flow', () => {
-  const http = node('Together AI: FLUX');
-  assert.equal(http.parameters.url, 'https://api.together.xyz/v1/images/generations');
+test('the API token lives in an n8n credential, never in the flow', () => {
+  const http = node('Cloudflare Workers AI: FLUX');
+  assert.equal(http.parameters.url, '={{ $json.url }}');
   assert.equal(http.parameters.genericAuthType, 'httpHeaderAuth');
-  assert.equal(http.credentials.httpHeaderAuth.name, 'Together AI');
-  assert.equal(http.onError, 'continueRegularOutput', 'a failed format does not stop the others');
-  assert.doesNotMatch(JSON.stringify(flow), /Bearer [A-Za-z0-9]{10,}|tgp_v1_|sk-[A-Za-z0-9]{10,}/);
-  assert.match(http.parameters.jsonBody, /response_format: 'base64'/);
+  assert.equal(http.credentials.httpHeaderAuth.name, 'Cloudflare Workers AI');
+  assert.equal(http.onError, 'continueRegularOutput', 'errors reach Finalize Job with a clear message');
+  assert.match(http.parameters.jsonBody, /steps: 4/);
+  assert.doesNotMatch(JSON.stringify(flow), /Bearer [A-Za-z0-9_-]{10,}|tgp_v1_|sk-[A-Za-z0-9]{10,}/);
 });
