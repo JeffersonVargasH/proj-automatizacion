@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowBack, AutoAwesome, CheckCircle, ContentCopy, Download, ExpandMore, Send, Share, Tune } from '@mui/icons-material';
+import { ArrowBack, AutoAwesome, CheckCircle, ContentCopy, DesignServices, Download, ExpandMore, Send, Share, Tune } from '@mui/icons-material';
 import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Chip, CircularProgress, Paper, Slider, Stack, Tab, Tabs, TextField, Typography } from '@mui/material';
 import { Brand, captionFor, captionLimits, Design, formats, Network, networks, outputs, styleLook, styles } from '@/lib/studio';
 import { requestCopy } from '@/lib/copy';
-import { downloadBlob, pngBlob, renderDesign } from '@/lib/studio-renderer';
+import { hasScenes } from '@/lib/editor/design-scenes';
+import { designImageBlob } from '@/lib/editor/design-image';
+import { downloadBlob } from '@/lib/studio-renderer';
 import { NetworkIcon, networkLook } from '@/components/brand/NetworkIcon';
 import { Choices, Field, Panel, Photos } from './Fields';
 import { SchedulePanel } from './SchedulePanel';
@@ -14,7 +16,7 @@ const tabs = ['Texto', 'Foto', 'Colores', 'Mover'];
 const publicationLabels = { sending: 'Publicando…', sent: 'Publicada', error: 'No se pudo publicar' } as const;
 const accordionSx = { borderRadius: '16px', '&:before': { display: 'none' } };
 
-export function Editor({ design: d, update, notify, connections, onPublish, onConnect, onBack }: { design: Design; update: (patch: Partial<Design>) => void; notify: (message: string, error?: boolean) => void; connections: Brand['connections']; onPublish: (targets: Network[]) => Promise<void>; onConnect: () => void; onBack: () => void }) {
+export function Editor({ design: d, update, notify, connections, onPublish, onConnect, onOpenDesigner, onBack }: { design: Design; update: (patch: Partial<Design>) => void; onOpenDesigner: () => void; notify: (message: string, error?: boolean) => void; connections: Brand['connections']; onPublish: (targets: Network[]) => Promise<void>; onConnect: () => void; onBack: () => void }) {
   const active = d.format as Network;
   const generation = d.generation;
   const generatedImageUrl = generation?.status === 'completed' ? generation.urls[active] : undefined;
@@ -33,11 +35,12 @@ export function Editor({ design: d, update, notify, connections, onPublish, onCo
     let live = true;
     let url = '';
     const timer = setTimeout(() => {
-      const result = renderDesign(d, generatedImageUrl).then(pngBlob);
+      // Con escena del editor visual se dibuja igual que el editor; si no, con el diseño clásico.
+      const result = designImageBlob(d, active);
       void result.then(blob => { if (!live) return; const previewUrl = (url = URL.createObjectURL(blob)); setPreview({ url: previewUrl, blob, design: d }); setRenderState({ design: d, error: '', rendering: false }); }).catch(reason => { if (live) setRenderState({ design: d, error: reason instanceof Error ? reason.message : 'No se pudo generar la vista previa.', rendering: false }); });
     }, 100);
     return () => { live = false; clearTimeout(timer); if (url) URL.revokeObjectURL(url); };
-  }, [d, generatedImageUrl, retry]);
+  }, [d, active, generatedImageUrl, retry]);
 
   const rendering = !renderState || renderState.design !== d || renderState.rendering;
   const renderError = renderState?.design === d ? renderState.error : '';
@@ -61,8 +64,7 @@ export function Editor({ design: d, update, notify, connections, onPublish, onCo
   async function downloadAll() {
     try {
       for (const network of outputs) {
-        const url = generation?.status === 'completed' ? generation.urls[network] : undefined;
-        const blob = await renderDesign({ ...d, format: network }, url).then(pngBlob);
+        const blob = await designImageBlob(d, network);
         downloadBlob(blob, filename.replace(`-${d.format}.png`, `-${network}.png`));
       }
       notify('Guardamos las versiones para Instagram, Facebook y WhatsApp.');
@@ -85,7 +87,10 @@ export function Editor({ design: d, update, notify, connections, onPublish, onCo
   const bigButton = { minHeight: 52, fontSize: '1rem', justifyContent: 'flex-start', px: 2.25 };
 
   return <Box className="editor" sx={{ pb: 2 }}>
-    <Button variant="text" startIcon={<ArrowBack />} onClick={onBack} sx={{ mb: 1, ml: -1 }}>Cambiar fotos o texto</Button>
+    <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" useFlexGap spacing={1} sx={{ mb: 1 }}>
+      <Button variant="text" startIcon={<ArrowBack />} onClick={onBack} sx={{ ml: -1 }}>Cambiar fotos o texto</Button>
+      <Button variant="contained" startIcon={<DesignServices />} onClick={onOpenDesigner} disabled={generation?.status === 'processing'}>Editar diseño</Button>
+    </Stack>
     <Typography variant="h1">{generation?.status === 'processing' ? 'Estamos preparando tu publicación' : '¡Tu publicación está lista!'}</Typography>
     <Typography color="text.secondary" sx={{ mt: .75, mb: 3, fontSize: '1.02rem' }}>Elige la red, mira cómo queda y compártela. Todo se guarda solo.</Typography>
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1.1fr) minmax(0, .9fr)' }, gap: 2, alignItems: 'start' }}>
@@ -114,13 +119,16 @@ export function Editor({ design: d, update, notify, connections, onPublish, onCo
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap><Button variant="outlined" startIcon={<ContentCopy />} onClick={() => void copy()} sx={{ minHeight: 46 }}>Copiar texto</Button><Button variant="text" startIcon={<AutoAwesome />} disabled={writing || !d.product.trim()} onClick={() => void rewriteCaption()}>{writing ? 'Escribiendo…' : 'Escribir otro'}</Button></Stack>
         </Stack></Panel>
 
-        <Accordion disableGutters variant="outlined" sx={accordionSx}><AccordionSummary expandIcon={<ExpandMore />}><Stack direction="row" spacing={1} alignItems="center"><Tune fontSize="small" color="action" /><Typography fontWeight={600}>Cambiar el diseño</Typography></Stack></AccordionSummary><AccordionDetails>
+        {/* Los controles clásicos mueven bloques fijos; con escenas del editor visual no aplican. */}
+        {hasScenes(d)
+          ? <Panel title="Diseño"><Stack spacing={1.25}><Typography variant="body2" color="text.secondary">Esta publicación se edita en el editor visual: textos, colores, fondo e imágenes son capas independientes.</Typography><Button variant="outlined" startIcon={<DesignServices />} onClick={onOpenDesigner}>Abrir el editor visual</Button></Stack></Panel>
+          : <Accordion disableGutters variant="outlined" sx={accordionSx}><AccordionSummary expandIcon={<ExpandMore />}><Stack direction="row" spacing={1} alignItems="center"><Tune fontSize="small" color="action" /><Typography fontWeight={600}>Cambiar el diseño</Typography></Stack></AccordionSummary><AccordionDetails>
           <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="fullWidth" sx={{ mb: 2, '& .MuiTab-root': { minWidth: 0, px: .5, textTransform: 'none', fontWeight: 600 } }}>{tabs.map(item => <Tab key={item} value={item} label={item} />)}</Tabs>
           {tab === 'Texto' && <Stack spacing={2}><Field label="Título" value={d.title} onChange={title => update({ title })} maxLength={80} /><Field label="Mensaje" multiline value={d.body} onChange={body => update({ body })} maxLength={180} /><Field label="Frase final" value={d.cta} onChange={cta => update({ cta })} maxLength={40} /><Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}><Field label="Precio" value={d.price} onChange={price => update({ price })} maxLength={45} /><Field label="¿Hasta cuándo?" value={d.validity} onChange={validity => update({ validity })} maxLength={60} /></Box><Field label="Contacto" value={d.contact} onChange={contact => update({ contact })} maxLength={35} /></Stack>}
           {tab === 'Foto' && <Stack spacing={2}><Choices label="¿Cómo se ve la foto?" options={['Foto completa', 'Llenar todo el espacio']} value={d.imageFit === 'cover' ? 'Llenar todo el espacio' : 'Foto completa'} onChange={value => update({ imageFit: value === 'Llenar todo el espacio' ? 'cover' : 'contain' })} />{d.images.length > 1 && <><Typography variant="body2" color="text.secondary">Toca la foto que quieres que se vea:</Typography><Box sx={{ display: 'flex', gap: 1, overflowX: 'auto' }}>{d.images.map((src, index) => <Box component="button" key={index} type="button" onClick={() => update({ selectedImage: index })} aria-label={`Usar foto ${index + 1}`} sx={{ p: 0, border: '3px solid', borderColor: index === d.selectedImage ? 'primary.main' : 'transparent', borderRadius: 2, overflow: 'hidden', width: 76, height: 60, flexShrink: 0, bgcolor: 'grey.100' }}><Box component="img" src={src} alt={`Foto ${index + 1}`} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} /></Box>)}</Box></>}<Photos images={d.images} onChange={images => update({ images, selectedImage: 0 })} /></Stack>}
           {tab === 'Colores' && <Stack spacing={2}><Choices label="Estilo" options={styles} value={d.style} onChange={style => update(styleLook(style, d.brand))} /><Choices label="Letra" options={['Moderna', 'Clásica']} value={d.font === 'sans' ? 'Moderna' : 'Clásica'} onChange={value => update({ font: value === 'Moderna' ? 'sans' : 'serif' })} /><Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}><TextField label="Color principal" type="color" value={d.color} onChange={event => update({ color: event.target.value })} /><TextField label="Fondo" type="color" value={d.background} onChange={event => update({ background: event.target.value })} /></Box><Button variant="outlined" onClick={() => update(styleLook(d.style, d.brand))}>Volver a los colores de mi negocio</Button></Stack>}
           {tab === 'Mover' && <Stack spacing={2}><Choices label="¿Qué quieres mover?" options={['Texto', 'Imagen']} value={element} onChange={setElement} /><Typography variant="body2" color="text.secondary">Arrastra sobre el diseño o usa estas barras.</Typography>{element === 'Texto' ? <>{range('Izquierda o derecha', 'textX', 4, 18)}{range('Arriba o abajo', 'textY', 45, 70)}{range('Tamaño del título', 'textSize', 35, 100)}</> : <>{range('Izquierda o derecha', 'imageX', 0, 100 - d.imageWidth)}{range('Arriba o abajo', 'imageY', 12, 55)}{range('Tamaño', 'imageWidth', 40, 100)}</>}<Button variant="outlined" onClick={() => update({ textX: 7, textY: 62, textSize: 68, imageX: 7, imageY: 16, imageWidth: 86 })}>Volver a como estaba</Button></Stack>}
-        </AccordionDetails></Accordion>
+        </AccordionDetails></Accordion>}
 
         <Accordion disableGutters variant="outlined" sx={accordionSx}><AccordionSummary expandIcon={<ExpandMore />}><Stack direction="row" spacing={1} alignItems="center"><Download fontSize="small" color="action" /><Typography fontWeight={600}>Todas las redes a la vez</Typography></Stack></AccordionSummary><AccordionDetails><Stack spacing={1.25}>
           <Button variant="outlined" startIcon={<Download />} disabled={!canExport} onClick={() => void downloadAll()}>Guardar las 3 imágenes</Button>

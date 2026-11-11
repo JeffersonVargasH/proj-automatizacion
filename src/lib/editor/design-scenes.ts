@@ -3,6 +3,7 @@
 import type { Design, Network } from '../studio';
 import { commercialValuesOf, type CommercialValues } from './bindings';
 import { createSceneFromTemplate, type BaseImage } from './layouts';
+import { addLayer, imageLayer } from './operations';
 import { normalizeScene, paletteFrom, sceneFormats, type Palette, type Scene, type SceneFormat } from './scene';
 
 // Las redes de Clic y los formatos de escena deben ser los mismos (falla al compilar si se separan).
@@ -88,6 +89,31 @@ export function withScene(design: Design, network: Network, scene: Scene): Desig
   const { scene: valid } = normalizeScene(scene);
   if (!valid || valid.format !== network) return design;
   return { ...design, scenes: { ...design.scenes, [network]: valid } };
+}
+
+/**
+ * Coloca en las escenas los fondos que devolvió la IA (uno por red).
+ * - Formato sin escena: se crea con la plantilla (fondo de IA + foto real + logo + textos editables).
+ * - Formato con escena: solo se cambia la imagen de fondo; lo que la persona editó se conserva.
+ * Las redes sin imagen nueva no cambian.
+ */
+export function applyGeneratedBackgrounds(design: Design, urls: Partial<Record<Network, string>>, kind: BaseImage['kind'] = 'background'): Design {
+  const networks = sceneNetworks.filter(network => typeof urls[network] === 'string' && urls[network]);
+  if (!networks.length) return design;
+  const current = normalizeDesignScenes(design).design.scenes ?? {};
+  const fresh = createDesignScenes(design, { base: Object.fromEntries(networks.map(network => [network, { src: urls[network]!, kind }])) });
+  const role = kind === 'complete' ? 'ai-complete' as const : 'ai-background' as const;
+  const scenes: Partial<Record<Network, Scene>> = { ...current };
+  for (const network of networks) {
+    const scene = current[network];
+    if (!scene) { scenes[network] = fresh[network]; continue; }
+    const base = scene.layers.find(layer => layer.type === 'image' && (layer.role === 'ai-background' || layer.role === 'ai-complete'));
+    scenes[network] = base
+      // Reemplazo directo (aunque esté bloqueada): es la app la que actualiza el fondo, no una edición manual.
+      ? { ...scene, layers: scene.layers.map(layer => layer.id === base.id && layer.type === 'image' ? { ...layer, src: urls[network]!, role } : layer) }
+      : addLayer(scene, imageLayer({ x: 0, y: 0, width: scene.width, height: scene.height }, role, urls[network]!, { name: role === 'ai-complete' ? 'Imagen con IA' : 'Fondo con IA', fit: 'cover' }), 0);
+  }
+  return { ...design, scenes };
 }
 
 /** Quita las escenas (volver al diseño clásico). */

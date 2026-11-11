@@ -17,6 +17,8 @@ import { AppUser, BusinessSummary } from '@/lib/auth';
 import { ClicLogo } from '@/components/brand/ClicLogo';
 import { NetworkIcon } from '@/components/brand/NetworkIcon';
 import { Brand, Design, duplicateDesign, emptyBrand, generationPayload, Network, networks, newDesign, normalizeBrand, outputs, Publication, publishPayload } from '@/lib/studio';
+import { applyGeneratedBackgrounds, hasScenes } from '@/lib/editor/design-scenes';
+import { blobToDataUrl, designImageBlob } from '@/lib/editor/design-image';
 import { renderDesign } from '@/lib/studio-renderer';
 import { shareableUrl, storage } from '@/lib/studio-storage';
 import { usePolling } from '@/hooks/usePolling';
@@ -24,9 +26,10 @@ import { AccountView } from './AccountView';
 import { BillingView } from './BillingView';
 import { BrandForm } from './BrandForm';
 import { CreateFlow, lastStep } from './CreateFlow';
+import { DesignerView } from './DesignerView';
 import { Editor } from './Editor';
 
-type View = 'home' | 'brand' | 'create' | 'editor' | 'history' | 'billing' | 'account';
+type View = 'home' | 'brand' | 'create' | 'editor' | 'design' | 'history' | 'billing' | 'account';
 const drawerWidth = 256;
 const versionsLabel = outputs.map(network => networks[network].label).join(' · ');
 const historyFilters = ['Todos', 'Generadas con IA', 'Maquetas', 'Publicadas', 'Con fecha deseada'];
@@ -43,15 +46,22 @@ function publishedIn(item: Design, status: Publication['status']) {
 
 function Thumbnail({ design }: { design: Design }) {
   const [src, setSrc] = useState('');
-  const generated = design.generation?.status === 'completed' ? design.generation.urls[design.format as Network] : undefined;
+  const scenes = hasScenes(design);
+  // Con escenas del editor la miniatura se dibuja como el editor; las generaciones antiguas usan la imagen tal cual.
+  const generated = !scenes && design.generation?.status === 'completed' ? design.generation.urls[design.format as Network] : undefined;
   useEffect(() => {
     let live = true;
+    let url = '';
     if (generated) return;
+    if (scenes) {
+      void designImageBlob(design, design.format as Network).then(blob => { if (live) setSrc(url = URL.createObjectURL(blob)); }).catch(() => {});
+      return () => { live = false; if (url) URL.revokeObjectURL(url); };
+    }
     void renderDesign(design).then(canvas => {
       if (live) setSrc(canvas.toDataURL('image/jpeg', 0.55));
     }).catch(() => {});
     return () => { live = false; };
-  }, [design, generated]);
+  }, [design, generated, scenes]);
   return generated || src ? <Box component="img" src={generated || src} alt={design.title || design.product} sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : <Stack alignItems="center" justifyContent="center" spacing={1} sx={{ height: '100%', color: 'primary.main', bgcolor: '#F2F5FA' }}><Skeleton variant="rounded" width="65%" height="70%" /><Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: '86%' }}>{design.product || 'Tu diseño'}</Typography></Stack>;
 }
 
@@ -171,7 +181,8 @@ export default function Studio({ currentUser, businesses, activeBusinessId, onSw
       const response = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(generationPayload(design)) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'No se pudo iniciar la generación.');
-      patchDesign(design.id, { generation: { status: 'processing', ticketId: data.ticket_id, urls: {} } });
+      // Se pide a la IA solo el fondo (sin producto ni texto); el editor visual compone el resto.
+      patchDesign(design.id, { generation: { status: 'processing', ticketId: data.ticket_id, urls: {}, kind: 'background' } });
       startPolling(data.ticket_id);
       notify('Guardada en Mis publicaciones. Estamos generando las versiones para Instagram, Facebook y WhatsApp.');
     } catch (error) {
@@ -189,10 +200,9 @@ export default function Studio({ currentUser, businesses, activeBusinessId, onSw
       if (!account.trim()) { mark({ status: 'error', at: new Date().toISOString(), error: 'Falta indicar la cuenta en Mi negocio.' }); continue; }
       mark({ status: 'sending', at: new Date().toISOString() });
       try {
-        const generated = design.generation?.status === 'completed' ? design.generation.urls[network] : undefined;
-        // La imagen generada se compone con el logo y los textos de la publicación (renderDesign) y,
-        // como Meta descarga la imagen por URL, se sube a Storage y se comparte con un enlace firmado.
-        const image = await shareableUrl((await renderDesign({ ...design, format: network }, generated)).toDataURL('image/png'));
+        // Se publica exactamente la imagen que se ve (escena del editor o diseño clásico) y, como Meta
+        // descarga la imagen por URL, se sube a Storage y se comparte con un enlace firmado.
+        const image = await shareableUrl(await blobToDataUrl(await designImageBlob(design, network)));
         const response = await fetch('/api/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(publishPayload(design, network, account.trim(), image)) });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || 'No se pudo publicar.');
@@ -213,10 +223,13 @@ export default function Studio({ currentUser, businesses, activeBusinessId, onSw
     if (!target) return;
     if (generationStatus === 'error') { patchDesign(target.id, { generation: { status: 'error', ticketId: generationTicket, urls: {}, error: generationError || 'No se pudo generar la imagen.' } }); return; }
     const urls = Object.fromEntries(outputs.map(network => [network, generatedImageUrls[network] || generatedImageUrl]).filter(([, url]) => url));
-    const generation = { status: 'completed' as const, ticketId: generationTicket, urls };
-    patchDesign(target.id, { generation });
+    const kind = target.generation?.kind;
+    const generation = { status: 'completed' as const, ticketId: generationTicket, urls, ...(kind ? { kind } : {}) };
+    // Fondos sin texto: se colocan en las escenas del editor (fondo + foto real + textos editables).
+    const finish = (design: Design): Design => kind === 'background' ? applyGeneratedBackgrounds({ ...design, generation }, urls) : { ...design, generation };
+    patchDesign(target.id, design => { const next = finish(design); return { generation: next.generation, scenes: next.scenes }; });
     const auto = outputs.filter(network => brand.connections[network].enabled);
-    if (auto.length) void publish({ ...target, generation }, auto);
+    if (auto.length) void publish(finish(target), auto);
     else notify('¡Listo! Tus versiones para Instagram, Facebook y WhatsApp están en Mis publicaciones.');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [generationStatus, generationTicket]);
@@ -231,7 +244,7 @@ export default function Studio({ currentUser, businesses, activeBusinessId, onSw
   ];
   const matchesFilter = (item: Design) => filter === 'Todos' ? true : filter === 'Generadas con IA' ? item.generation?.status === 'completed' : filter === 'Maquetas' ? item.generation?.status !== 'completed' : filter === 'Publicadas' ? publishedIn(item, 'sent').length > 0 : !!item.schedule;
   const visibleHistory = history.filter(item => `${item.title} ${item.product}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()) && matchesFilter(item));
-  const pageLabel = view === 'editor' ? 'Tu publicación' : nav.find(item => item.id === view)?.label || 'Inicio';
+  const pageLabel = view === 'editor' ? 'Tu publicación' : view === 'design' ? 'Editor visual' : nav.find(item => item.id === view)?.label || 'Inicio';
 
   async function duplicate(item: Design) {
     setBusy(true);
@@ -250,7 +263,7 @@ export default function Studio({ currentUser, businesses, activeBusinessId, onSw
   const sidebar = <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', px: 2, py: 2.5 }}>
     <Box sx={{ px: 1, pb: 3.5 }}><ClicLogo size={30} wordmark /></Box>
     <List disablePadding sx={{ display: 'grid', gap: .5 }}>{nav.map(({ id, label, icon: Icon }) => {
-      const selected = view === id || (id === 'create' && view === 'editor');
+      const selected = view === id || (id === 'create' && (view === 'editor' || view === 'design'));
       return <ListItemButton key={id} selected={selected} onClick={() => id === 'create' ? begin() : navigate(id)} sx={{ borderRadius: '12px', minHeight: 44, px: 1.5, color: 'text.secondary', '&.Mui-selected, &.Mui-selected:hover': { bgcolor: '#EEF3FF', color: 'primary.main' } }}><ListItemIcon sx={{ minWidth: 34, color: 'inherit' }}><Icon fontSize="small" /></ListItemIcon><ListItemText primary={label} slotProps={{ primary: { fontWeight: selected ? 650 : 550, fontSize: 14 } }} /></ListItemButton>;
     })}</List>
     <Box sx={{ mt: 'auto' }} />
@@ -275,7 +288,8 @@ export default function Studio({ currentUser, businesses, activeBusinessId, onSw
           {view === 'home' && <HomeView userName={currentUser.name} brand={brand} draft={draft} history={history} begin={begin} resume={resume} navigate={navigate} />}
           {view === 'brand' && <BrandForm key={brand.name + brand.logo.length} initial={brand} onSave={async next => { try { await storage.put('brand', next); setBrand(next); onBusinessRenamed(next.name.trim() || 'Mi negocio'); notify('Datos del negocio guardados. Se usarán en las nuevas publicaciones.'); } catch (error) { notify(error instanceof Error ? error.message : 'No se pudo guardar el negocio.', true); } }} />}
           {view === 'create' && draft && <CreateFlow design={draft} update={update} step={step} setStep={setStep} onCreate={generateWithN8n} />}
-          {view === 'editor' && draft && <Editor key={draft.id} design={draft} update={update} notify={notify} connections={brand.connections} onPublish={targets => publish(draft, targets)} onConnect={() => navigate('brand')} onBack={() => { setStep(lastStep); navigate('create'); }} />}
+          {view === 'editor' && draft && <Editor key={draft.id} design={draft} update={update} notify={notify} connections={brand.connections} onPublish={targets => publish(draft, targets)} onConnect={() => navigate('brand')} onOpenDesigner={() => navigate('design')} onBack={() => { setStep(lastStep); navigate('create'); }} />}
+          {view === 'design' && draft && <DesignerView key={draft.id} design={draft} update={update} onBack={() => navigate('editor')} />}
           {/* El guardado normal ya se ve en la barra superior: aquí solo se avisa si algo falla. */}
           {(view === 'editor' || view === 'create') && draft && (!storageAvailable || storageStatus.startsWith('No se pudo')) && <Typography role="status" variant="body2" color="error.main" sx={{ display: 'block', textAlign: 'center', mt: 2 }}>{storageAvailable ? storageStatus : 'No hay conexión: tus cambios no se están guardando.'}</Typography>}
           {view === 'billing' && <BillingView />}

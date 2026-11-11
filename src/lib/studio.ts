@@ -50,7 +50,11 @@ export function styleLook(style: string, brand: Pick<Brand, 'primary' | 'seconda
 export function intentOf(d: Pick<Design, 'objective'>) {
   return intents.find(intent => intent.objective === d.objective) || intents[0];
 }
-export type Generation = { status: 'processing' | 'completed' | 'error'; ticketId?: string; urls: Partial<Record<Network, string>>; error?: string };
+/**
+ * Resultado de la IA. `kind: 'background'` = solo fondo (sin producto ni texto): el editor visual pone encima
+ * la foto real del producto y los textos. Sin `kind` (generaciones antiguas) era una imagen comercial completa.
+ */
+export type Generation = { status: 'processing' | 'completed' | 'error'; ticketId?: string; urls: Partial<Record<Network, string>>; error?: string; kind?: 'background' | 'complete' };
 export type Publication = { status: 'sending' | 'sent' | 'error'; at: string; error?: string };
 export type Design = {
   id: string; createdAt: string; updatedAt: string; brand: Brand;
@@ -109,7 +113,7 @@ export function suggestCopy(d: Design, variant = 0) {
 }
 export function generationPayload(d: Design) {
   // Las cuentas conectadas no le sirven al generador; se envían solo al publicar.
-  return { version: 1, requestId: d.id, business: { ...d.brand, connections: undefined }, product: { name: d.product, description: d.description, price: d.price, images: d.images }, content: { type: d.type, objective: d.objective, format: d.format, dimensions: formats[d.format], outputs: outputs.map(network => ({ network, ...formats[network] })), style: d.style, colors: { primary: d.color, background: d.background }, tone: d.tone, instructions: d.instructions, validity: d.validity, contact: d.contact }, copy: { title: d.title, body: d.body, cta: d.cta, hashtags: d.hashtags, caption: d.caption, captions: d.captions }, edits: d.requests, schedule: d.schedule };
+  return { version: 1, requestId: d.id, business: { ...d.brand, connections: undefined }, product: { name: d.product, description: d.description, price: d.price, images: d.images }, content: { type: d.type, objective: d.objective, format: d.format, imageMode: 'background', dimensions: formats[d.format], outputs: outputs.map(network => ({ network, ...formats[network] })), style: d.style, colors: { primary: d.color, background: d.background }, tone: d.tone, instructions: d.instructions, validity: d.validity, contact: d.contact }, copy: { title: d.title, body: d.body, cta: d.cta, hashtags: d.hashtags, caption: d.caption, captions: d.captions }, edits: d.requests, schedule: d.schedule };
 }
 export function publishPayload(d: Design, network: Network, account: string, image: string) {
   return { version: 1, requestId: d.id, network, account, image, dimensions: formats[network], caption: captionFor(d, network) || [d.title, d.body, d.cta, d.hashtags].filter(Boolean).join('\n'), business: d.brand.name };
