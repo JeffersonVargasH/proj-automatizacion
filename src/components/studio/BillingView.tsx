@@ -64,7 +64,7 @@ export function BillingView() {
           <Stack direction="row" justifyContent="space-between" alignItems="center"><Typography variant="h2" fontSize={22}>{plan.name}</Typography>{selected && <Chip icon={<CheckCircle />} label="Actual" color="primary" size="small" />}</Stack>
           <Box><Typography sx={{ fontSize: '2.2rem', fontWeight: 700, lineHeight: 1.1 }}>S/ {plan.monthlyPrice}</Typography><Typography variant="caption" color="text.secondary">por mes · modo pruebas</Typography></Box>
           <Typography variant="body2" color="text.secondary" sx={{ minHeight: 44 }}>{plan.description}</Typography>
-          <Stack spacing={.75}><Typography variant="body2">✓ {plan.generationLimit} generaciones con IA al mes</Typography><Typography variant="body2">✓ {plan.scheduledLimit} publicaciones programadas</Typography><Typography variant="body2">✓ Historial y editor visual</Typography></Stack>
+          <Stack spacing={.75}><Typography variant="body2">✓ {plan.generationLimit} generaciones con IA al mes</Typography><Typography variant="body2">✓ {plan.scheduledLimit} {plan.scheduledLimit === 1 ? 'publicación programada' : 'publicaciones programadas'}</Typography><Typography variant="body2">✓ Historial y editor visual</Typography></Stack>
           <Button variant={selected ? 'outlined' : 'contained'} disabled={busy !== '' || selected || !subscription} onClick={() => void updateSubscription('/api/billing/subscription', { planId: plan.id })}>{busy === '/api/billing/subscription' ? <CircularProgress size={20} /> : selected ? 'Plan actual' : 'Probar este plan'}</Button>
         </Stack></CardContent>
       </Card>;
