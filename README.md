@@ -27,7 +27,7 @@ Las cuentas demo son `admin@clic.local` y `empresario@clic.local`, ambas con con
 
 El módulo `Mi plan` registra planes y consumo en modo pruebas. Las generaciones descuentan el límite mensual y se libera el consumo si n8n rechaza o no acepta el trabajo. No hay cobros reales todavía. Los borradores legales están disponibles en `/legal/terminos` y `/legal/privacidad`; ambos requieren revisión antes de publicarse como documentos definitivos.
 
-La programación se guarda en una cola protegida por usuario en `data/scheduled-posts.json` y queda como `pending_connection` hasta configurar un proveedor social. `db/schema.sql` contiene el esquema PostgreSQL para sustituir los archivos locales por almacenamiento compartido. Las rutas de billing tienen cancelación y renovación en modo pruebas; el siguiente paso de producción es implementar el adaptador y webhook del proveedor elegido.
+La programación se guarda en una cola protegida por usuario en `data/scheduled-posts.json` y queda como `pending_connection` hasta configurar un proveedor social. La prueba actual de publicación de texto en Facebook pasa por `POST /api/publish` y el webhook `N8N_PUBLISH_WEBHOOK_URL`; la imagen y la programación real requieren el siguiente adaptador. `db/schema.sql` contiene el esquema PostgreSQL para sustituir los archivos locales por almacenamiento compartido. Las rutas de billing tienen cancelación y renovación en modo pruebas; el siguiente paso de producción es implementar el adaptador y webhook del proveedor elegido.
 
 `POST /api/billing/checkout` ya expone el contrato de checkout en modo prueba (`PAYMENT_PROVIDER=test`). Para producción, el adaptador debe implementar creación de checkout, webhooks firmados, idempotencia y confirmación de pagos antes de activar una suscripción.
 
@@ -67,7 +67,7 @@ Para usar la adaptación:
 
 1. En n8n importa `n8n/creamas-openai-images.json` y activa el workflow. Conecta las credenciales de OpenAI en `OpenAI Vision: Analyze Reference Image` y `LLM: OpenAI Chat`.
 2. Expón `OPENAI_API_KEY` al contenedor n8n. El nodo `OpenAI: Generate Image` la usa únicamente en el servidor para llamar a `https://api.openai.com/v1/images/generations`; no la pongas en el frontend ni la guardes en el JSON.
-3. En `.env.local` configura `N8N_GENERATE_WEBHOOK_URL` y `N8N_STATUS_WEBHOOK_URL`. Si Next corre en el host y n8n publica el puerto `5678`, los valores de `.env.example` funcionan.
+3. En `.env.local` configura `N8N_GENERATE_WEBHOOK_URL`, `N8N_STATUS_WEBHOOK_URL` y `N8N_PUBLISH_WEBHOOK_URL`. Si Next corre en el host y n8n publica el puerto `5678`, los valores de `.env.example` funcionan.
 4. La imagen de referencia actual llega como data URL. Para una instalación real conviene subirla primero a Spaces/S3 y enviar una URL autorizada; el almacenamiento temporal en `data:` URL es solo para validar el flujo local y puede ocupar bastante memoria en n8n.
 
 La adaptación no modifica ni sobrescribe `C:\Users\yo\Downloads\Images.json`; ese archivo original conserva el flujo Telegram/video. Las credenciales y tokens que contenga deben revocarse y regenerarse si fueron expuestos.
