@@ -61,7 +61,8 @@ export type Design = {
   color: string; background: string; font: 'sans' | 'serif';
   textX: number; textY: number; textSize: number; imageX: number; imageY: number; imageWidth: number;
   requests: { id: string; text: string; createdAt: string; status: 'pending' }[];
-  schedule: { channel: string; at: string; status: 'pending_connection' } | null;
+  /** Fecha en la cola de publicación (tabla scheduled_posts). Las fechas antiguas no tienen `id`. */
+  schedule: { id?: string; channel: string; at: string; status: 'pending_connection' | 'cancelled' | 'published' | 'error' } | null;
   generation?: Generation;
   publications?: Partial<Record<Network, Publication>>;
   /** Texto propio de cada red (escrito con IA). Sin él, todas usan `caption`. */

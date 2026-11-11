@@ -8,6 +8,7 @@ import { requestCopy } from '@/lib/copy';
 import { downloadBlob, pngBlob, renderDesign } from '@/lib/studio-renderer';
 import { NetworkIcon, networkLook } from '@/components/brand/NetworkIcon';
 import { Choices, Field, Panel, Photos } from './Fields';
+import { SchedulePanel } from './SchedulePanel';
 
 const tabs = ['Texto', 'Foto', 'Colores', 'Mover'];
 const publicationLabels = { sending: 'Publicando…', sent: 'Publicada', error: 'No se pudo publicar' } as const;
@@ -105,6 +106,8 @@ export function Editor({ design: d, update, notify, connections, onPublish, onCo
           {!canExport && <Typography variant="body2" color="warning.main">Agrega una foto y un título para poder compartir.</Typography>}
           {!readyAccounts.length && <Typography variant="body2" color="text.secondary">¿Quieres publicar directo desde aquí? <Box component="button" type="button" onClick={onConnect} sx={{ p: 0, border: 0, bgcolor: 'transparent', color: 'primary.main', font: 'inherit', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>Conecta tus redes</Box>.</Typography>}
         </Stack></Panel>
+
+        <SchedulePanel key={d.id} design={d} active={active} update={update} notify={notify} />
 
         <Panel title="Texto para acompañar la foto"><Stack spacing={1.5}>
           <Field label={`Texto para ${label}`} multiline value={captionFor(d, active)} onChange={setCaption} maxLength={captionLimits[active] || 2200} disabled={writing} />
