@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
-  Add, AdminPanelSettings, ArrowForward, Check, ContentCopy,
+  Add, AdminPanelSettings, ArrowForward, Check, ContentCopy, CreditCard,
   DeleteOutline, FolderOpen, HomeOutlined, ManageAccounts, Menu as MenuIcon, MoreHoriz,
   AddPhotoAlternateOutlined, EditNote, IosShare, Search, Storefront, TouchAppOutlined, UnfoldMore,
 } from '@mui/icons-material';
@@ -21,11 +21,12 @@ import { renderDesign } from '@/lib/studio-renderer';
 import { shareableUrl, storage } from '@/lib/studio-storage';
 import { usePolling } from '@/hooks/usePolling';
 import { AccountView } from './AccountView';
+import { BillingView } from './BillingView';
 import { BrandForm } from './BrandForm';
 import { CreateFlow, lastStep } from './CreateFlow';
 import { Editor } from './Editor';
 
-type View = 'home' | 'brand' | 'create' | 'editor' | 'history' | 'account';
+type View = 'home' | 'brand' | 'create' | 'editor' | 'history' | 'billing' | 'account';
 const drawerWidth = 256;
 const versionsLabel = outputs.map(network => networks[network].label).join(' · ');
 const historyFilters = ['Todos', 'Generadas con IA', 'Maquetas', 'Publicadas', 'Con fecha deseada'];
@@ -225,6 +226,7 @@ export default function Studio({ currentUser, businesses, activeBusinessId, onSw
     { id: 'create' as View, label: 'Crear publicación', icon: Add },
     { id: 'history' as View, label: 'Mis publicaciones', icon: FolderOpen },
     { id: 'brand' as View, label: 'Mi negocio', icon: Storefront },
+    { id: 'billing' as View, label: 'Mi plan', icon: CreditCard },
     { id: 'account' as View, label: 'Mi cuenta', icon: ManageAccounts },
   ];
   const matchesFilter = (item: Design) => filter === 'Todos' ? true : filter === 'Generadas con IA' ? item.generation?.status === 'completed' : filter === 'Maquetas' ? item.generation?.status !== 'completed' : filter === 'Publicadas' ? publishedIn(item, 'sent').length > 0 : !!item.schedule;
@@ -276,6 +278,7 @@ export default function Studio({ currentUser, businesses, activeBusinessId, onSw
           {view === 'editor' && draft && <Editor key={draft.id} design={draft} update={update} notify={notify} connections={brand.connections} onPublish={targets => publish(draft, targets)} onConnect={() => navigate('brand')} onBack={() => { setStep(lastStep); navigate('create'); }} />}
           {/* El guardado normal ya se ve en la barra superior: aquí solo se avisa si algo falla. */}
           {(view === 'editor' || view === 'create') && draft && (!storageAvailable || storageStatus.startsWith('No se pudo')) && <Typography role="status" variant="body2" color="error.main" sx={{ display: 'block', textAlign: 'center', mt: 2 }}>{storageAvailable ? storageStatus : 'No hay conexión: tus cambios no se están guardando.'}</Typography>}
+          {view === 'billing' && <BillingView />}
           {view === 'account' && <AccountView user={currentUser} businesses={businesses} activeBusinessId={activeBusinessId} onUserChange={onUserChange} onDeleteBusiness={onDeleteBusiness} notify={notify} onLogout={onLogout} />}
           {view === 'history' && <HistoryView history={history} visibleHistory={visibleHistory} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} begin={begin} resume={resume} onMenu={(event, item) => { setMenuAnchor(event.currentTarget); setMenuTarget(item); }} onDelete={setDeleteId} />}
         </>}
