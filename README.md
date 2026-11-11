@@ -61,7 +61,7 @@ La web ya dispone de dos proxies server-side para no exponer la URL ni el token 
 
 Copia `.env.example` como `.env.local` y ajusta las URLs si n8n no está publicado en el puerto local 5678. En n8n, crea un Webhook `POST /creamas-generate` que responda inmediatamente con un `ticket_id`, y otro Webhook `GET /status` que consulte el estado almacenado. El workflow debe actualizar ese estado al terminar y devolver `finalUrl` con la imagen generada.
 
-El JSON de `Images.json` parte de Telegram y termina enviando un video a Telegram; no es todavía el workflow web de CreaMás. Se dejó una adaptación importable en `n8n/creamas-openai-images.json`: recibe el contrato de `generationPayload`, responde un `ticket_id`, conserva la rama de análisis/prompt y usa OpenAI Image API para generar la imagen. También expone el estado mediante `GET /webhook/status`. El resultado se guarda temporalmente como `data:` URL para que el prototipo pueda mostrarlo y descargarlo desde el editor.
+El JSON de `Images.json` parte de Telegram y termina enviando un video a Telegram; no es todavía el workflow web de Clic. Se dejó una adaptación importable en `n8n/creamas-openai-images.json`: recibe el contrato de `generationPayload`, responde un `ticket_id`, conserva la rama de análisis/prompt y usa OpenAI Image API para generar la imagen. También expone el estado mediante `GET /webhook/status`. El resultado se guarda temporalmente como `data:` URL para que el prototipo pueda mostrarlo y descargarlo desde el editor.
 
 Para usar la adaptación:
 

@@ -1,5 +1,5 @@
 {
-  "name": "CreaMás - Generación de imágenes web",
+  "name": "Clic - Generación de imágenes web",
   "nodes": [
     {
       "parameters": {
@@ -9,7 +9,7 @@
         "options": {}
       },
       "id": "creamas-generate-hook",
-      "name": "CreaMás Generate Webhook",
+      "name": "Clic Generate Webhook",
       "type": "n8n-nodes-base.webhook",
       "position": [
         160,
@@ -248,7 +248,7 @@
   ],
   "pinData": {},
   "connections": {
-    "CreaMás Generate Webhook": {
+    "Clic Generate Webhook": {
       "main": [
         [
           {

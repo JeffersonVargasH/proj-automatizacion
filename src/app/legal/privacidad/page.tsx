@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Política de privacidad · CreaMás' };
+export const metadata: Metadata = { title: 'Política de privacidad · Clic' };
 
 export default function PrivacyPage() {
   return <main style={{ maxWidth: 860, margin: '0 auto', padding: '48px 24px', fontFamily: 'system-ui, sans-serif', color: '#1C1C1E', lineHeight: 1.6 }}>
-    <p style={{ color: '#3F63E9', fontWeight: 700, letterSpacing: '.08em' }}>CREAMÁS</p>
+    <p style={{ color: '#3F63E9', fontWeight: 700, letterSpacing: '.08em' }}>CLIC</p>
     <h1>Política de privacidad</h1>
     <p><strong>Borrador para revisión legal.</strong> Completa responsables, finalidades, plazos y derechos aplicables antes de publicar esta política.</p>
     <h2>1. Datos que podemos tratar</h2><p>Podemos tratar datos de cuenta, información del negocio, datos de contacto, imágenes cargadas, textos de publicaciones, preferencias de formato y registros técnicos necesarios para operar el servicio.</p>
