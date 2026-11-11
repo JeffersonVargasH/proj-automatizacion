@@ -364,14 +364,14 @@ async function renderSocialLayout(ctx: CanvasRenderingContext2D, d: Design, img:
 
   const productX = w * 0.27; const productY = h * 0.22; const productW = w * 0.46; const productH = h * (d.format === 'story' || d.format === 'whatsapp' ? 0.38 : 0.47);
   cover(ctx, img, productX, productY, productW, productH, 'contain');
-  const arrow = (x: number, y: number, targetX: number, targetY: number, right = false) => {
+  const arrow = (x: number, y: number, targetX: number, targetY: number) => {
     ctx.strokeStyle = accent; ctx.lineWidth = Math.max(2, w * 0.002); ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo((x + targetX) / 2, y + (targetY - y) * 0.18, targetX, targetY); ctx.stroke();
     const angle = Math.atan2(targetY - y, targetX - x); const size = Math.max(9, w * 0.012);
     ctx.beginPath(); ctx.moveTo(targetX, targetY); ctx.lineTo(targetX - size * Math.cos(angle - 0.5), targetY - size * Math.sin(angle - 0.5)); ctx.lineTo(targetX - size * Math.cos(angle + 0.5), targetY - size * Math.sin(angle + 0.5)); ctx.closePath(); ctx.fillStyle = accent; ctx.fill();
   };
   const note = (value: string, x: number, y: number, width: number, targetX: number, targetY: number, right = false) => {
     text(ctx, value, x, y, width, h * 0.12, Math.min(29, h * 0.026), displayFont, ink, true);
-    arrow(right ? x : x + width, y + h * 0.07, targetX, targetY, right);
+    arrow(right ? x : x + width, y + h * 0.07, targetX, targetY);
   };
   note(d.description || d.body, w * 0.045, h * 0.30, w * 0.23, productX, productY + productH * 0.25);
   note(d.body, w * 0.72, h * 0.30, w * 0.23, productX + productW, productY + productH * 0.27, true);
