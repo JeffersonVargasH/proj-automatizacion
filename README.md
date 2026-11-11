@@ -544,6 +544,18 @@ Se eliminó `/api/upload`, que firmaba subidas públicas a DigitalOcean Spaces s
 
 Para probar la app sin enviar correos, `node scripts/test-user.mjs create [admin]` crea una cuenta ya confirmada (sus datos quedan en `.env.test.local`, ignorado por git) y `node scripts/test-user.mjs delete` la borra con todo lo suyo.
 
+### 9.5 Planes, consumo y publicaciones programadas (modo pruebas)
+
+Integra el trabajo de la rama `avance-hasta-3.6` sobre Supabase. La migración `supabase/migrations/20261111000000_planes_y_programacion.sql` crea:
+
+- `subscriptions`: plan de cada cuenta (`free` 3 generaciones/mes y 1 programada, `starter` 20 y 10, `pro` 60 y 40), consumo del mes y cancelación al cierre. Todo en modo pruebas: no hay cobros.
+- `scheduled_posts`: cola de publicaciones programadas por cuenta (`pending_connection` hasta conectar la publicación automática).
+- Funciones `my_subscription`, `reserve_generation`, `release_generation`, `change_plan_test`, `set_cancel_at_period_end`, `schedule_post` y `cancel_scheduled_post`. Con RLS cada cuenta solo **lee** lo suyo y nadie escribe estas tablas directamente: todo pasa por las funciones, que validan la sesión y los límites.
+
+**Cómo activarlo:** ejecuta la migración una vez en el SQL Editor de Supabase, después de la base. Mientras no se aplique, la app funciona como antes: `/api/generate` genera sin límite de plan y "Mi plan" y "Programar publicación" muestran un aviso.
+
+Rutas: `GET /api/billing/plans`, `GET|POST /api/billing/subscription`, `POST /api/billing/subscription/cancel` y `/renew`, `POST /api/billing/checkout` (contrato de pago, `PAYMENT_PROVIDER=test`), `GET|POST /api/publishing/schedule` y `DELETE /api/publishing/schedule/{id}`. `/api/generate` descuenta una generación (y la devuelve si n8n no acepta el trabajo) y `/api/generate/status` solo responde a quien inició el trabajo. Los borradores legales están en `/legal/terminos` y `/legal/privacidad`.
+
 ---
 
 ## 10. Máquinas de estado
