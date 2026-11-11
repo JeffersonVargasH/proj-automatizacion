@@ -6,7 +6,7 @@ interface PollingResult {
   status: PollingStatus;
   resultUrl: string | null;
   error: string | null;
-  startPolling: (ticketId: string) => void;
+  startPolling: (ticketId: string, onCompleted?: (resultUrl: string) => void) => void;
   stopPolling: () => void;
 }
 
@@ -19,30 +19,34 @@ export const usePolling = (intervalMs = 3000): PollingResult => {
   const [error, setError] = useState<string | null>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const attemptsRef = useRef(0);
+  const checkingRef = useRef(false);
+
+  const clearPolling = useCallback(() => {
+    if (pollingRef.current) clearInterval(pollingRef.current);
+    pollingRef.current = null;
+  }, []);
 
   const stopPolling = useCallback(() => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-    if (status === 'polling') {
-      setStatus('idle');
-    }
-  }, [status]);
+    clearPolling();
+    setStatus(current => current === 'polling' ? 'idle' : current);
+  }, [clearPolling]);
 
-  const startPolling = useCallback((ticketId: string) => {
+  const startPolling = useCallback((ticketId: string, onCompleted?: (resultUrl: string) => void) => {
+    clearPolling();
     setStatus('polling');
     setResultUrl(null);
     setError(null);
     attemptsRef.current = 0;
 
     const checkStatus = async () => {
+      if (checkingRef.current) return;
+      checkingRef.current = true;
       attemptsRef.current += 1;
       if (attemptsRef.current > MAX_POLLING_ATTEMPTS) {
         setError('La generación tardó demasiado. Revisa n8n y vuelve a intentarlo.');
         setStatus('error');
-        if (pollingRef.current) clearInterval(pollingRef.current);
-        pollingRef.current = null;
+        clearPolling();
+        checkingRef.current = false;
         return;
       }
 
@@ -59,17 +63,20 @@ export const usePolling = (intervalMs = 3000): PollingResult => {
         if (data.status === 'completed' && resultUrl) {
           setResultUrl(resultUrl);
           setStatus('completed');
-          if (pollingRef.current) clearInterval(pollingRef.current);
+          onCompleted?.(resultUrl);
+          clearPolling();
         } else if (data.status === 'error' && data.error !== 'Ticket no encontrado.') {
           setError(data.error || data.message || 'Ocurrió un error al generar la imagen');
           setStatus('error');
-          if (pollingRef.current) clearInterval(pollingRef.current);
+          clearPolling();
         }
         // Si status === 'processing', dejamos que el polling continúe
       } catch (err) {
         console.error('Error durante el polling:', err);
         // Podríamos decidir fallar tras X errores consecutivos, 
         // pero por ahora solo registramos y dejamos que intente de nuevo en el próximo tick.
+      } finally {
+        checkingRef.current = false;
       }
     };
 
@@ -79,11 +86,11 @@ export const usePolling = (intervalMs = 3000): PollingResult => {
     // Iniciar el intervalo
     pollingRef.current = setInterval(checkStatus, intervalMs);
 
-  }, [intervalMs]);
+  }, [clearPolling, intervalMs]);
 
   useEffect(() => () => {
-    if (pollingRef.current) clearInterval(pollingRef.current);
-  }, []);
+    clearPolling();
+  }, [clearPolling]);
 
   return { status, resultUrl, error, startPolling, stopPolling };
 };

@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server';
+import { validateTicketId } from '@/lib/studio-contract';
+import { requireServerSession } from '@/lib/server-auth';
+import { canAccessGenerationJob } from '@/lib/server-jobs';
 
 const STATUS_WEBHOOK_URL = process.env.N8N_STATUS_WEBHOOK_URL || 'http://localhost:5678/webhook/status';
 
 export async function GET(request: Request) {
-  const ticketId = new URL(request.url).searchParams.get('ticket_id');
-  if (!ticketId) return NextResponse.json({ error: 'Falta ticket_id.' }, { status: 400 });
+  const session = await requireServerSession();
+  if (!session) return NextResponse.json({ error: 'Debes iniciar sesión para consultar el estado.' }, { status: 401 });
+  const ticketId = validateTicketId(new URL(request.url).searchParams.get('ticket_id'));
+  if (!ticketId) return NextResponse.json({ error: 'Falta ticket_id válido.' }, { status: 400 });
+  if (!await canAccessGenerationJob(ticketId, session.user.id)) return NextResponse.json({ error: 'No tienes acceso a este trabajo.' }, { status: 403 });
 
   try {
     const target = new URL(STATUS_WEBHOOK_URL);

@@ -19,16 +19,17 @@ export type Design = {
   title: string; body: string; cta: string; hashtags: string; caption: string;
   color: string; background: string; font: 'sans' | 'serif';
   textX: number; textY: number; textSize: number; imageX: number; imageY: number; imageWidth: number;
+  generatedImageUrl: string | null;
   requests: { id: string; text: string; createdAt: string; status: 'pending' }[];
-  schedule: { channel: string; at: string; status: 'pending_connection' } | null;
+  schedule: { id?: string; channel: string; at: string; status: 'pending_connection' | 'cancelled' | 'published' | 'error' } | null;
 };
 export function newDesign(brand: Brand): Design {
   const now = new Date().toISOString();
-  return { id: crypto.randomUUID(), createdAt: now, updatedAt: now, brand: { ...brand }, type: 'Flyer', objective: 'Vender', product: '', description: '', price: '', validity: '', contact: brand.phone, images: [], selectedImage: 0, format: 'instagram', style: 'Moderno', tone: 'Cercano', instructions: '', title: '', body: '', cta: 'Escríbenos', hashtags: '', caption: '', color: brand.primary, background: brand.secondary, font: 'sans', textX: 7, textY: 62, textSize: 68, imageX: 7, imageY: 16, imageWidth: 86, requests: [], schedule: null };
+  return { id: crypto.randomUUID(), createdAt: now, updatedAt: now, brand: { ...brand }, type: 'Flyer', objective: 'Vender', product: '', description: '', price: '', validity: '', contact: brand.phone, images: [], selectedImage: 0, format: 'instagram', style: 'Moderno', tone: 'Cercano', instructions: '', title: '', body: '', cta: 'Escríbenos', hashtags: '', caption: '', color: brand.primary, background: brand.secondary, font: 'sans', textX: 7, textY: 62, textSize: 68, imageX: 7, imageY: 16, imageWidth: 86, generatedImageUrl: null, requests: [], schedule: null };
 }
 export function duplicateDesign(design: Design): Design {
   const now = new Date().toISOString();
-  return { ...design, id: crypto.randomUUID(), createdAt: now, updatedAt: now, title: design.title + ' · copia', requests: [], schedule: null };
+  return { ...design, id: crypto.randomUUID(), createdAt: now, updatedAt: now, title: design.title + ' · copia', generatedImageUrl: null, requests: [], schedule: null };
 }
 export function suggestCopy(d: Design, variant = 0) {
   const names = [d.product, `Descubre ${d.product}`, `${d.product}, para ti`];

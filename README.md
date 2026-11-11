@@ -19,6 +19,18 @@ node node_modules/typescript/bin/tsc --noEmit --incremental false
 node --test tests/studio.test.cjs
 ```
 
+## Autenticación local de desarrollo
+
+El acceso usa una sesión firmada en cookie `HttpOnly`. Copia `.env.example` a `.env.local` y cambia `AUTH_SECRET` antes de usar el proyecto fuera de una máquina local. Los usuarios de desarrollo se guardan en `data/users.json`, un archivo ignorado por Git; en producción debe reemplazarse por una base de datos compartida.
+
+Las cuentas demo son `admin@clic.local` y `empresario@clic.local`, ambas con contraseña `demo1234`. El panel de administración crea usuarios en el servidor y las rutas de generación, estado y subida rechazan solicitudes sin sesión.
+
+El módulo `Mi plan` registra planes y consumo en modo pruebas. Las generaciones descuentan el límite mensual y se libera el consumo si n8n rechaza o no acepta el trabajo. No hay cobros reales todavía. Los borradores legales están disponibles en `/legal/terminos` y `/legal/privacidad`; ambos requieren revisión antes de publicarse como documentos definitivos.
+
+La programación se guarda en una cola protegida por usuario en `data/scheduled-posts.json` y queda como `pending_connection` hasta configurar un proveedor social. `db/schema.sql` contiene el esquema PostgreSQL para sustituir los archivos locales por almacenamiento compartido. Las rutas de billing tienen cancelación y renovación en modo pruebas; el siguiente paso de producción es implementar el adaptador y webhook del proveedor elegido.
+
+`POST /api/billing/checkout` ya expone el contrato de checkout en modo prueba (`PAYMENT_PROVIDER=test`). Para producción, el adaptador debe implementar creación de checkout, webhooks firmados, idempotencia y confirmación de pagos antes de activar una suscripción.
+
 ## Qué funciona localmente
 
 - Datos de marca, logo, colores y contacto reutilizables.

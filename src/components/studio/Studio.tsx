@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
-  Add, ArrowForward, AutoAwesome, Brush, Business, CheckCircle, ContentCopy,
+  Add, ArrowForward, AutoAwesome, Brush, Business, CheckCircle, ContentCopy, CreditCard,
   DeleteOutline, FolderOpen, HomeOutlined, Menu as MenuIcon, MoreHoriz,
   PaletteOutlined, Search, Storefront,
 } from '@mui/icons-material';
@@ -22,8 +22,9 @@ import { usePolling } from '@/hooks/usePolling';
 import { BrandForm } from './BrandForm';
 import { CreateFlow } from './CreateFlow';
 import { Editor } from './Editor';
+import { BillingView } from './BillingView';
 
-type View = 'home' | 'brand' | 'create' | 'editor' | 'history';
+type View = 'home' | 'brand' | 'create' | 'editor' | 'history' | 'billing';
 const drawerWidth = 256;
 
 function Thumbnail({ design }: { design: Design }) {
@@ -58,7 +59,7 @@ export default function Studio({ currentUser, onLogout }: { currentUser?: AppUse
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [menuTarget, setMenuTarget] = useState<Design | null>(null);
-  const { status: generationStatus, resultUrl: generatedImageUrl, error: generationError, startPolling } = usePolling();
+  const { status: generationStatus, error: generationError, startPolling } = usePolling();
   const main = useRef<HTMLElement>(null);
 
   const notify = (message: string, error = false) => setNotice({ message, error });
@@ -107,7 +108,11 @@ export default function Studio({ currentUser, onLogout }: { currentUser?: AppUse
 
   useEffect(() => { main.current?.scrollTo({ top: 0 }); }, [view, step]);
 
-  const update = (patch: Partial<Design>) => setDraft(current => current ? { ...current, ...patch, updatedAt: new Date().toISOString() } : current);
+  const update = (patch: Partial<Design>) => setDraft(current => {
+    if (!current) return current;
+    const isGeneratedImageUpdate = Object.prototype.hasOwnProperty.call(patch, 'generatedImageUrl');
+    return { ...current, ...patch, ...(isGeneratedImageUpdate ? {} : { generatedImageUrl: null }), updatedAt: new Date().toISOString() };
+  });
   const navigate = (next: View) => { setView(next); setDrawerOpen(false); };
 
   function begin() {
@@ -131,11 +136,14 @@ export default function Studio({ currentUser, onLogout }: { currentUser?: AppUse
     }
     setStep(4);
     navigate('editor');
+    update({ generatedImageUrl: null });
     try {
       const response = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(generationPayload(draft)) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'No se pudo iniciar la generación.');
-      startPolling(data.ticket_id);
+      startPolling(data.ticket_id, resultUrl => setDraft(current => current && current.generatedImageUrl !== resultUrl
+        ? { ...current, generatedImageUrl: resultUrl, updatedAt: new Date().toISOString() }
+        : current));
       notify('Tu diseño se está generando. Puedes seguir trabajando mientras esperamos.');
     } catch (error) {
       notify(error instanceof Error ? error.message : 'No se pudo iniciar la generación.', true);
@@ -147,6 +155,7 @@ export default function Studio({ currentUser, onLogout }: { currentUser?: AppUse
     { id: 'create' as View, label: 'Crear publicación', icon: Add },
     { id: 'history' as View, label: 'Mis publicaciones', icon: FolderOpen },
     { id: 'brand' as View, label: 'Mi negocio', icon: Storefront },
+    { id: 'billing' as View, label: 'Mi plan', icon: CreditCard },
   ];
   const visibleHistory = history.filter(item => `${item.title} ${item.product}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()) && (filter === 'Todos' || (filter === 'Con fecha deseada' ? item.schedule : !item.schedule)));
   const pageLabel = view === 'editor' ? 'Editor' : nav.find(item => item.id === view)?.label || 'Inicio';
@@ -191,7 +200,8 @@ export default function Studio({ currentUser, onLogout }: { currentUser?: AppUse
           {view === 'home' && <HomeView brand={brand} draft={draft} history={history} begin={begin} resume={resume} navigate={navigate} />}
           {view === 'brand' && <BrandForm key={brand.name + brand.logo.length} initial={brand} onSave={async next => { try { await storage.put('brand', next); setBrand(next); notify('Datos del negocio guardados. Se usarán en las nuevas publicaciones.'); } catch (error) { notify(error instanceof Error ? error.message : 'No se pudo guardar el negocio.', true); } }} />}
           {view === 'create' && draft && <CreateFlow design={draft} update={update} step={step} setStep={setStep} onCreate={generateWithN8n} />}
-          {view === 'editor' && draft && <Editor key={draft.id} design={draft} update={update} onSave={save} notify={notify} generatedImageUrl={generatedImageUrl} generationStatus={generationStatus} generationError={generationError} onBack={() => { setStep(4); navigate('create'); }} />}
+          {view === 'editor' && draft && <Editor key={draft.id} design={draft} update={update} onSave={save} notify={notify} generatedImageUrl={draft.generatedImageUrl} generationStatus={generationStatus} generationError={generationError} onBack={() => { setStep(4); navigate('create'); }} />}
+          {view === 'billing' && <BillingView />}
           {(view === 'editor' || view === 'create') && draft && <Typography role="status" variant="caption" color={storageAvailable ? 'text.secondary' : 'error.main'} sx={{ display: 'block', textAlign: 'center', mt: 2 }}>{storageAvailable ? storageStatus : 'Almacenamiento no disponible: los cambios no se conservarán.'}</Typography>}
           {view === 'history' && <HistoryView history={history} visibleHistory={visibleHistory} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} begin={begin} resume={resume} onMenu={(event, item) => { setMenuAnchor(event.currentTarget); setMenuTarget(item); }} onDelete={setDeleteId} />}
         </>}
