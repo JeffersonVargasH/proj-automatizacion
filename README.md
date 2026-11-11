@@ -843,13 +843,14 @@ Cuerpo (`publishPayload`), una llamada por red; se reenvía a `N8N_PUBLISH_WEBHO
 
 ## 14. Workflows de n8n
 
-La carpeta `n8n/` contiene tres variantes importables del workflow de **generación**. Todas exponen `POST /webhook/creamas-generate` (responde un `ticket_id` al instante) y `GET /webhook/status` (consulta el trabajo).
+La carpeta `n8n/` contiene cuatro variantes importables del workflow de **generación**. Todas exponen `POST /webhook/creamas-generate` (responde un `ticket_id` al instante) y `GET /webhook/status` (consulta el trabajo).
 
 | Archivo | Análisis y prompt | Imagen | Cuándo usarlo |
 |---|---|---|---|
 | `creamas-openai-images.json` | OpenAI Vision + agente con `gpt-4.1-mini` | OpenAI `images/edits` sobre la foto de referencia | Mejor calidad; requiere `OPENAI_API_KEY` en el contenedor de n8n |
 | `creamas-web-images.json` | OpenAI Vision + agente con `gpt-4.1-mini` | Gemini (Nano Banana) | Alternativa con Gemini para la imagen |
 | `creamas-free-images.json` | Gemini 1.5 Flash | Hugging Face `instruct-pix2pix` | Pruebas sin costo, menor calidad |
+| **`creamas-flux-images.json`** | Prompt fijo, sin agentes | Together AI · FLUX.1 schnell: **solo fondo, sin texto**, 3 formatos | **Recomendado**: demo con el editor visual |
 
 ```mermaid
 flowchart LR
@@ -860,11 +861,20 @@ flowchart LR
 
 **Pendientes en n8n** (la app ya está lista para ellos):
 
-1. Generar las **tres salidas** de `content.outputs` y devolver `finalUrls`. Hoy los workflows devuelven una sola imagen.
+1. Generar las **tres salidas** de `content.outputs` y devolver `finalUrls`. `creamas-flux-images.json` ya lo hace; los demás devuelven una sola imagen.
 2. Crear el workflow **`creamas-publish`** con las credenciales de Meta: Instagram Graph API (`instagram_content_publish`, cuenta profesional vinculada a una página), Facebook Pages (`pages_manage_posts`) y WhatsApp Cloud API (mensaje con imagen a contactos que aceptaron recibirlo).
 3. Validar la cabecera `x-creamas-token` en cada webhook.
 
 Para importar: en n8n, *Import from file* → activar el workflow → conectar las credenciales indicadas en cada nodo. Las claves se configuran en n8n, nunca en los JSON ni en el frontend.
+
+### 14.1 Demo con FLUX (Together AI) y el editor visual
+
+1. Crea una API key en [together.ai](https://api.together.ai/settings/api-keys).
+2. En n8n: **Credentials → Add credential → Header Auth**, nombre `Together AI`, *Name* `Authorization`, *Value* `Bearer <tu key>`. No hace falta tocar `docker-compose.yml` ni el `.env` de Next.js: la key solo vive en n8n.
+3. Importa `n8n/creamas-flux-images.json`, abre el nodo **Together AI: FLUX**, elige la credencial y **activa** el workflow. Desactiva cualquier otro que use `creamas-generate` (las rutas se repiten).
+4. En la app crea una publicación: n8n devuelve tres fondos sin texto (1024×1024, 1344×704 y 768×1344, `kind: background`) y Clic los coloca en el editor visual con la foto real del producto, el logo y los textos como capas editables. **Editar diseño** abre el editor; la vista previa, las descargas y la publicación usan esa misma escena.
+
+El modelo se cambia en la constante `MODEL` del nodo *Initialize Job*. Si un formato falla, los demás se entregan igual y la app usa la imagen principal para el que falta.
 
 ---
 
