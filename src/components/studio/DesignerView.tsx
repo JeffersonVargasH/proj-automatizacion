@@ -1,20 +1,25 @@
 'use client';
 
 // Abre el editor visual (Konva) con la publicación actual. Si todavía no tiene escenas, se crean con la
-// plantilla: fondo de IA (si hay) + foto real del producto + logo + textos editables. Cada cambio se guarda
+// plantilla: foto del producto (mejorada con IA si la hay) + logo + textos editables. Cada cambio se guarda
 // en el diseño (escenas y textos comerciales), y el autoguardado de siempre lo lleva a IndexedDB y Supabase.
 import { useState } from 'react';
 import { ArrowBack } from '@mui/icons-material';
 import { Box, Button, Stack, Typography } from '@mui/material';
 import DesignEditor from '@/components/editor/DesignEditor';
-import { designValues, ensureDesignScenes } from '@/lib/editor/design-scenes';
+import { applyEnhancedPhoto, designValues, ensureDesignScenes, hasScenes } from '@/lib/editor/design-scenes';
 import type { EditorDocument } from '@/lib/editor/editor-state';
 import type { Design, Network } from '@/lib/studio';
 
 export function DesignerView({ design, update, onBack }: { design: Design; update: (patch: Partial<Design>) => void; onBack: () => void }) {
   // El documento se arma una sola vez al abrir; desde ahí el editor es la fuente de los cambios.
   const [document] = useState<EditorDocument>(() => {
-    const generated = design.generation?.status === 'completed' && design.generation.kind === 'background' ? design.generation.urls : {};
+    const done = design.generation?.status === 'completed' ? design.generation : undefined;
+    if (done?.kind === 'enhanced' && !hasScenes(design)) {
+      const seeded = applyEnhancedPhoto(design, done.urls[design.format as Network] || Object.values(done.urls)[0]);
+      if (seeded.scenes) return { scenes: seeded.scenes, values: designValues(design) };
+    }
+    const generated = done?.kind === 'background' ? done.urls : {};
     const seeded = ensureDesignScenes(design, { base: Object.fromEntries(Object.entries(generated).map(([network, src]) => [network, { src: src as string, kind: 'background' as const }])) as Partial<Record<Network, { src: string; kind: 'background' }>> });
     return { scenes: seeded.scenes ?? {}, values: designValues(design) };
   });

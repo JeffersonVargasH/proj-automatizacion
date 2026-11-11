@@ -2,7 +2,7 @@
 // Puro: no toca el DOM ni Supabase. Los tipos de `studio.ts` se importan solo como tipos.
 import type { Design, Network } from '../studio';
 import { commercialValuesOf, type CommercialValues } from './bindings';
-import { createSceneFromTemplate, type BaseImage } from './layouts';
+import { createSceneFromTemplate, templateSlots, type BaseImage } from './layouts';
 import { addLayer, imageLayer } from './operations';
 import { normalizeScene, paletteFrom, sceneFormats, type Palette, type Scene, type SceneFormat } from './scene';
 
@@ -60,12 +60,14 @@ export function sceneFor(design: Pick<Design, 'scenes'>, network: Network): Scen
 export type SceneSeed = {
   /** Imagen de IA por red y qué contiene. Sin ella, la escena usa la foto real del producto. */
   base?: Partial<Record<Network, BaseImage>>;
+  /** Foto del producto a usar en lugar de la elegida en el diseño (por ejemplo, la versión mejorada con IA). */
+  product?: string;
 };
 
 /** Crea las escenas iniciales de un diseño con las plantillas, a partir de su propio snapshot de marca. */
 export function createDesignScenes(design: Design, seed: SceneSeed = {}): Record<Network, Scene> {
   const brand = design.brand || ({} as Design['brand']);
-  const product = design.images?.[design.selectedImage] || design.images?.[0];
+  const product = seed.product || design.images?.[design.selectedImage] || design.images?.[0];
   const footer = [brand.instagram, brand.facebook, brand.address].filter(Boolean).join('  ·  ');
   const common = { palette: designPalette(design), brandName: brand.name || '', logo: brand.logo || undefined, footer, values: designValues(design), product };
   const result = {} as Record<Network, Scene>;
@@ -112,6 +114,33 @@ export function applyGeneratedBackgrounds(design: Design, urls: Partial<Record<N
       // Reemplazo directo (aunque esté bloqueada): es la app la que actualiza el fondo, no una edición manual.
       ? { ...scene, layers: scene.layers.map(layer => layer.id === base.id && layer.type === 'image' ? { ...layer, src: urls[network]!, role } : layer) }
       : addLayer(scene, imageLayer({ x: 0, y: 0, width: scene.width, height: scene.height }, role, urls[network]!, { name: role === 'ai-complete' ? 'Imagen con IA' : 'Fondo con IA', fit: 'cover' }), 0);
+  }
+  return { ...design, scenes };
+}
+
+/**
+ * Coloca la foto del producto mejorada por la IA (la misma para las tres redes).
+ * - Formato sin escena: se crea con la plantilla usando la foto mejorada.
+ * - Formato con escena: solo cambia la imagen de la capa «Foto del producto»; textos, posiciones y demás
+ *   ediciones se conservan. Si la persona borró esa capa, se agrega de nuevo en su lugar de la plantilla.
+ * La foto original sigue guardada en el diseño (`images`); solo cambia lo que muestra el editor.
+ */
+export function applyEnhancedPhoto(design: Design, src: string | undefined): Design {
+  if (typeof src !== 'string' || !src) return design;
+  const current = normalizeDesignScenes(design).design.scenes ?? {};
+  const fresh = createDesignScenes(design, { product: src });
+  const scenes: Partial<Record<Network, Scene>> = {};
+  for (const network of sceneNetworks) {
+    const scene = current[network] ?? fresh[network];
+    const photo = scene.layers.find(layer => layer.type === 'image' && layer.role === 'product');
+    if (photo) {
+      // La foto mejorada ya trae su propio entorno: llena el recuadro (cover) en vez de dejar bordes vacíos.
+      scenes[network] = { ...scene, layers: scene.layers.map(layer => layer.id === photo.id && layer.type === 'image' ? { ...layer, src, fit: 'cover' as const } : layer) };
+      continue;
+    }
+    const [x, y, w, h] = templateSlots(network).product;
+    const above = scene.layers.findIndex(layer => !(layer.type === 'image' && (layer.role === 'ai-background' || layer.role === 'ai-complete')));
+    scenes[network] = addLayer(scene, imageLayer({ x: Math.round(x * scene.width), y: Math.round(y * scene.height), width: Math.round(w * scene.width), height: Math.round(h * scene.height) }, 'product', src, { name: 'Foto del producto', fit: 'cover', cornerRadius: 22 }), above < 0 ? scene.layers.length : above);
   }
   return { ...design, scenes };
 }

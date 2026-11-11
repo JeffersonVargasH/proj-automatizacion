@@ -51,10 +51,13 @@ export function intentOf(d: Pick<Design, 'objective'>) {
   return intents.find(intent => intent.objective === d.objective) || intents[0];
 }
 /**
- * Resultado de la IA. `kind: 'background'` = solo fondo (sin producto ni texto): el editor visual pone encima
- * la foto real del producto y los textos. Sin `kind` (generaciones antiguas) era una imagen comercial completa.
+ * Resultado de la IA:
+ * - `kind: 'enhanced'` = la foto real del cliente, mejorada (luz, nitidez, entorno limpio) y sin texto: reemplaza
+ *   a la foto del producto en el editor visual y los textos van encima como capas.
+ * - `kind: 'background'` = solo fondo (sin producto ni texto): el editor pone encima la foto real y los textos.
+ * - Sin `kind` (generaciones antiguas) era una imagen comercial completa.
  */
-export type Generation = { status: 'processing' | 'completed' | 'error'; ticketId?: string; urls: Partial<Record<Network, string>>; error?: string; kind?: 'background' | 'complete' };
+export type Generation = { status: 'processing' | 'completed' | 'error'; ticketId?: string; urls: Partial<Record<Network, string>>; error?: string; kind?: 'enhanced' | 'background' | 'complete' };
 export type Publication = { status: 'sending' | 'sent' | 'error'; at: string; error?: string };
 export type Design = {
   id: string; createdAt: string; updatedAt: string; brand: Brand;
@@ -111,9 +114,13 @@ export function suggestCopy(d: Design, variant = 0) {
   const hashtags = Array.from(new Set([tag(d.brand.name), tag(d.product), ...fixed, 'Emprendimiento'].filter(Boolean))).map(t => '#' + t).join(' ');
   return { title: title.slice(0, 80), body, cta, hashtags, captions: undefined, caption: `${title}\n\n${body}${d.price ? '\nPrecio: ' + d.price : ''}${d.validity ? '\n' + d.validity : ''}${d.contact ? '\nContacto: ' + d.contact : ''}\n\n${cta}\n${hashtags}` };
 }
-export function generationPayload(d: Design) {
+/**
+ * Datos que recibe n8n para generar. `referenceImage` es la foto elegida del producto, ya reducida (máx. 512 px):
+ * la IA la mejora sin cambiar el producto (`imageMode: 'enhance'`).
+ */
+export function generationPayload(d: Design, referenceImage?: string) {
   // Las cuentas conectadas no le sirven al generador; se envían solo al publicar.
-  return { version: 1, requestId: d.id, business: { ...d.brand, connections: undefined }, product: { name: d.product, description: d.description, price: d.price, images: d.images }, content: { type: d.type, objective: d.objective, format: d.format, imageMode: 'background', dimensions: formats[d.format], outputs: outputs.map(network => ({ network, ...formats[network] })), style: d.style, colors: { primary: d.color, background: d.background }, tone: d.tone, instructions: d.instructions, validity: d.validity, contact: d.contact }, copy: { title: d.title, body: d.body, cta: d.cta, hashtags: d.hashtags, caption: d.caption, captions: d.captions }, edits: d.requests, schedule: d.schedule };
+  return { version: 1, requestId: d.id, business: { ...d.brand, connections: undefined }, product: { name: d.product, description: d.description, price: d.price, images: d.images }, content: { type: d.type, objective: d.objective, format: d.format, imageMode: 'enhance', referenceImage, dimensions: formats[d.format], outputs: outputs.map(network => ({ network, ...formats[network] })), style: d.style, colors: { primary: d.color, background: d.background }, tone: d.tone, instructions: d.instructions, validity: d.validity, contact: d.contact }, copy: { title: d.title, body: d.body, cta: d.cta, hashtags: d.hashtags, caption: d.caption, captions: d.captions }, edits: d.requests, schedule: d.schedule };
 }
 export function publishPayload(d: Design, network: Network, account: string, image: string) {
   return { version: 1, requestId: d.id, network, account, image, dimensions: formats[network], caption: captionFor(d, network) || [d.title, d.body, d.cta, d.hashtags].filter(Boolean).join('\n'), business: d.brand.name };

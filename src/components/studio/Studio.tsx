@@ -17,8 +17,8 @@ import { AppUser, BusinessSummary } from '@/lib/auth';
 import { ClicLogo } from '@/components/brand/ClicLogo';
 import { NetworkIcon } from '@/components/brand/NetworkIcon';
 import { Brand, Design, duplicateDesign, emptyBrand, generationPayload, Network, networks, newDesign, normalizeBrand, outputs, Publication, publishPayload } from '@/lib/studio';
-import { applyGeneratedBackgrounds, hasScenes } from '@/lib/editor/design-scenes';
-import { blobToDataUrl, designImageBlob } from '@/lib/editor/design-image';
+import { applyEnhancedPhoto, applyGeneratedBackgrounds, hasScenes } from '@/lib/editor/design-scenes';
+import { blobToDataUrl, designImageBlob, referencePhoto } from '@/lib/editor/design-image';
 import { renderDesign } from '@/lib/studio-renderer';
 import { shareableUrl, storage } from '@/lib/studio-storage';
 import { usePolling } from '@/hooks/usePolling';
@@ -178,11 +178,13 @@ export default function Studio({ currentUser, businesses, activeBusinessId, onSw
     try { await upsert(design); }
     catch (error) { notify(error instanceof Error ? error.message : 'No se pudo guardar en Mis publicaciones.', true); }
     try {
-      const response = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(generationPayload(design)) });
+      // La IA mejora la foto real elegida (luz, nitidez, entorno limpio) sin cambiar el producto ni agregar texto;
+      // el editor visual pone los textos encima como capas editables.
+      const reference = await referencePhoto(design.images[design.selectedImage] || design.images[0]);
+      const response = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(generationPayload(design, reference)) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'No se pudo iniciar la generación.');
-      // Se pide a la IA solo el fondo (sin producto ni texto); el editor visual compone el resto.
-      patchDesign(design.id, { generation: { status: 'processing', ticketId: data.ticket_id, urls: {}, kind: 'background' } });
+      patchDesign(design.id, { generation: { status: 'processing', ticketId: data.ticket_id, urls: {}, kind: 'enhanced' } });
       startPolling(data.ticket_id);
       notify('Guardada en Mis publicaciones. Estamos generando las versiones para Instagram, Facebook y WhatsApp.');
     } catch (error) {
@@ -225,8 +227,9 @@ export default function Studio({ currentUser, businesses, activeBusinessId, onSw
     const urls = Object.fromEntries(outputs.map(network => [network, generatedImageUrls[network] || generatedImageUrl]).filter(([, url]) => url));
     const kind = target.generation?.kind;
     const generation = { status: 'completed' as const, ticketId: generationTicket, urls, ...(kind ? { kind } : {}) };
-    // Fondos sin texto: se colocan en las escenas del editor (fondo + foto real + textos editables).
-    const finish = (design: Design): Design => kind === 'background' ? applyGeneratedBackgrounds({ ...design, generation }, urls) : { ...design, generation };
+    // Foto mejorada: reemplaza a la foto del producto en las escenas. Fondos sin texto: van debajo de la foto real.
+    const finish = (design: Design): Design => kind === 'enhanced' ? applyEnhancedPhoto({ ...design, generation }, urls[design.format as Network] || Object.values(urls)[0])
+      : kind === 'background' ? applyGeneratedBackgrounds({ ...design, generation }, urls) : { ...design, generation };
     patchDesign(target.id, design => { const next = finish(design); return { generation: next.generation, scenes: next.scenes }; });
     const auto = outputs.filter(network => brand.connections[network].enabled);
     if (auto.length) void publish(finish(target), auto);

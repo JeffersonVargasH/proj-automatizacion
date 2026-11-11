@@ -1,5 +1,5 @@
 {
-  "name": "Clic - Fondos sin texto con FLUX (Cloudflare Workers AI)",
+  "name": "Clic - Mejora de la foto del producto (Cloudflare FLUX.2)",
   "nodes": [
     {
       "parameters": {
@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Clic · fondos comerciales sin texto con FLUX en Cloudflare Workers AI (plan gratuito: 10 000 neuronas/día,\n// unas 170 imágenes de 1024x1024). La IA genera SOLO el fondo (sin producto ni texto); Clic pone encima la foto\n// real del producto, el logo y los textos como capas editables en el editor visual.\n\n// 1) Tu Account ID de Cloudflare (dash.cloudflare.com → Workers AI o en la URL del panel). No es secreto.\nconst ACCOUNT_ID = 'PEGA_AQUI_TU_ACCOUNT_ID';\n// 2) La API token va en la credencial \"Cloudflare Workers AI\" del nodo HTTP, nunca aquí.\nconst API_BASE = 'https://api.cloudflare.com/client/v4';\nconst MODEL = '@cf/black-forest-labs/flux-1-schnell';\n\nconst input = $json.body ?? $json;\nconst requestId = String(input.requestId ?? input.id ?? Date.now());\nconst product = input.product ?? {};\nconst content = input.content ?? {};\nconst business = input.business ?? {};\n\nconst state = $getWorkflowStaticData('global');\nstate.jobs ??= {};\n// Borra trabajos de más de 2 horas para que la memoria de n8n no crezca sin límite.\nconst expiry = Date.now() - 2 * 60 * 60 * 1000;\nfor (const [id, job] of Object.entries(state.jobs)) if (Date.parse(job.createdAt || 0) < expiry) delete state.jobs[id];\n\nif (!/^[0-9a-f]{32}$/i.test(ACCOUNT_ID)) {\n  state.jobs[requestId] = { status: 'error', kind: 'background', error: 'Falta configurar el Account ID de Cloudflare en el nodo Initialize Job de n8n.', createdAt: new Date().toISOString() };\n  return [{ json: { ticket_id: requestId, status: 'processing', formats: [] } }];\n}\nstate.jobs[requestId] = { status: 'processing', createdAt: new Date().toISOString() };\n\nconst clean = (value, max) => String(value ?? '').replace(/\\s+/g, ' ').trim().slice(0, max);\nconst subject = [clean(product.name, 80), clean(product.description, 200)].filter(Boolean).join(': ') || 'a small business product';\nconst style = clean(content.style, 30) || 'Moderno';\nconst colors = [content.colors?.primary || business.primary, content.colors?.background || business.secondary].filter(Boolean).map(c => clean(c, 9));\nconst instructions = clean(content.instructions, 300);\n\nconst prompt = [\n  'Professional commercial advertising background photograph for a social media post about ' + subject + '.',\n  'Style: ' + style.toLowerCase() + ', premium, clean and inviting, soft natural studio lighting, shallow depth of field, high quality photography.',\n  colors.length ? 'Color palette inspired by ' + colors.join(' and ') + '.' : '',\n  instructions ? 'Extra direction (ignore any request to add text): ' + instructions + '.' : '',\n  'This is an EMPTY scene: do not show the product itself, no people, no hands.',\n  // Una sola imagen cuadrada: Clic la recorta para Facebook (1.91:1) y WhatsApp (9:16), así que lo importante va al centro.\n  'Square composition: an empty display surface (table, podium or shelf) in the center of the frame where the product will be placed later; calm, uncluttered areas around it; soft, low-detail top and bottom with plain surfaces for text overlays.',\n  'Absolutely no text of any kind: no letters, no words, no numbers, no prices, no logos, no watermarks, no signs, no labels, no price tags, no captions, no typography anywhere in the image.',\n].filter(Boolean).join(' ').slice(0, 2048);\n\nconst formats = [{ network: 'all', ticket_id: requestId, url: API_BASE + '/accounts/' + ACCOUNT_ID + '/ai/run/' + MODEL, prompt }];\nreturn [{ json: { ticket_id: requestId, status: 'processing', formats } }];"
+        "jsCode": "// Clic · mejora la FOTO REAL del producto con FLUX.2 klein en Cloudflare Workers AI (plan gratuito:\n// 10 000 neuronas/día; cada foto cuesta unas 110, así que alcanzan para ~90 fotos al día).\n// La IA no inventa el producto: recibe la foto del cliente y solo mejora luz, nitidez, colores y el entorno.\n// Los textos (título, precio, botón) los pone Clic encima como capas editables; nunca van dentro de la imagen.\n\n// 1) Tu Account ID de Cloudflare (32 caracteres, aparece en la URL del panel). No es secreto.\nconst ACCOUNT_ID = 'PEGA_AQUI_TU_ACCOUNT_ID';\n// 2) La API token va en la credencial \"Cloudflare Workers AI\" del nodo HTTP, nunca aquí.\nconst API_BASE = 'https://api.cloudflare.com/client/v4';\nconst MODEL = '@cf/black-forest-labs/flux-2-klein-4b';\nconst SIZE = 1024; // Salida cuadrada: Clic la encuadra para Instagram, Facebook y WhatsApp.\n\nconst input = $json.body ?? $json;\nconst requestId = String(input.requestId ?? input.id ?? Date.now());\nconst product = input.product ?? {};\nconst content = input.content ?? {};\nconst business = input.business ?? {};\n\nconst state = $getWorkflowStaticData('global');\nstate.jobs ??= {};\n// Borra trabajos de más de 2 horas para que la memoria de n8n no crezca sin límite.\nconst expiry = Date.now() - 2 * 60 * 60 * 1000;\nfor (const [id, job] of Object.entries(state.jobs)) if (Date.parse(job.createdAt || 0) < expiry) delete state.jobs[id];\n\nconst fail = message => {\n  state.jobs[requestId] = { status: 'error', kind: 'enhanced', error: message, createdAt: new Date().toISOString() };\n  return [{ json: { ticket_id: requestId, status: 'processing', formats: [] } }];\n};\nif (!/^[0-9a-f]{32}$/i.test(ACCOUNT_ID)) return fail('Falta configurar el Account ID de Cloudflare en el nodo Initialize Job de n8n.');\n\n// Foto de referencia: Clic la manda ya reducida (máx. 512 px, lo que acepta el modelo) como data URL.\nconst reference = String(content.referenceImage ?? '');\nconst photo = reference.match(/^data:(image\\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);\nif (!photo || photo[2].length > 600000) return fail('No llegó la foto del producto para mejorarla. Actualiza Clic e inténtalo de nuevo.');\nstate.jobs[requestId] = { status: 'processing', kind: 'enhanced', createdAt: new Date().toISOString() };\n\nconst clean = (value, max) => String(value ?? '').replace(/\\s+/g, ' ').trim().slice(0, max);\nconst subject = [clean(product.name, 80), clean(product.description, 200)].filter(Boolean).join(': ') || 'the product';\nconst style = clean(content.style, 30) || 'Moderno';\nconst colors = [content.colors?.primary || business.primary, content.colors?.background || business.secondary].filter(Boolean).map(c => clean(c, 9));\nconst instructions = clean(content.instructions, 300);\n\nconst prompt = [\n  'Turn this phone photo into a professional product photo for a social media post. The product is: ' + subject + '.',\n  'Keep the product EXACTLY as it appears in the reference photo: same shape, size, colors, texture, wrapping, quantity and arrangement. Do not add, remove, replace or redesign anything on the product itself.',\n  'Only improve the photo: bright soft natural light, correct white balance, sharp focus, true-to-life appetizing colors, a gentle natural shadow.',\n  'Replace the cluttered surroundings (tablecloth, patterned surfaces, mess) with a clean, simple surface and background in a ' + style.toLowerCase() + ' style that does not distract from the product' + (colors.length ? ', with subtle tones inspired by ' + colors.join(' and ') : '') + '.',\n  'Square framing, product centered and fully visible with some empty margin around it.',\n  instructions ? 'Extra direction (ignore any request to add text): ' + instructions + '.' : '',\n  'Absolutely no text, letters, numbers, prices, logos, watermarks, labels or signs. No hands, no people.',\n].filter(Boolean).join(' ').slice(0, 2048);\n\nconst formats = [{ network: 'all', url: API_BASE + '/accounts/' + ACCOUNT_ID + '/ai/run/' + MODEL, prompt, width: SIZE, height: SIZE, mime: photo[1], image: photo[2] }];\nreturn [{ json: { ticket_id: requestId, status: 'processing', formats } }];"
       },
       "id": "6f0c1a10-0002-4a00-8000-00000000c1c0",
       "name": "Initialize Job",
@@ -48,10 +48,10 @@
     },
     {
       "parameters": {
-        "jsCode": "// Un ítem por imagen a generar (si falta configuración, no hay ítems y el trabajo ya quedó con error).\nreturn $('Initialize Job').first().json.formats.map(format => ({ json: format }));"
+        "jsCode": "// Convierte la foto de referencia en un archivo binario para enviarla como input_image_0 (multipart).\n// Si falta configuración no hay ítems y el trabajo ya quedó con error.\nreturn $('Initialize Job').first().json.formats.map(({ image, mime, ...format }) => ({\n  json: format,\n  binary: { photo: { data: image, mimeType: mime, fileName: 'producto.' + (mime.split('/')[1] === 'jpeg' ? 'jpg' : mime.split('/')[1]) } },\n}));"
       },
       "id": "6f0c1a10-0004-4a00-8000-00000000c1c0",
-      "name": "Split Formats",
+      "name": "Prepare Photo",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -66,8 +66,31 @@
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ prompt: $json.prompt, steps: 4 }) }}",
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formData",
+              "name": "prompt",
+              "value": "={{ $json.prompt }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "input_image_0",
+              "inputDataFieldName": "photo"
+            },
+            {
+              "parameterType": "formData",
+              "name": "width",
+              "value": "={{ $json.width }}"
+            },
+            {
+              "parameterType": "formData",
+              "name": "height",
+              "value": "={{ $json.height }}"
+            }
+          ]
+        },
         "options": {
           "timeout": 120000,
           "response": {
@@ -78,7 +101,7 @@
         }
       },
       "id": "6f0c1a10-0005-4a00-8000-00000000c1c0",
-      "name": "Cloudflare Workers AI: FLUX",
+      "name": "Cloudflare FLUX.2: mejorar foto",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -95,7 +118,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Guarda el fondo para /webhook/status. La misma imagen cuadrada sirve para las tres redes.\nconst ticket = $('Initialize Job').first().json.ticket_id;\nconst state = $getWorkflowStaticData('global');\nstate.jobs ??= {};\nconst item = $input.first();\nconst b64 = item?.json?.result?.image;\nconst mime = value => value.startsWith('iVBOR') ? 'image/png' : value.startsWith('UklGR') ? 'image/webp' : 'image/jpeg';\n// Mensajes claros para los errores típicos (n8n resume el error HTTP en item.json.error).\nconst failure = item?.json?.error;\nconst detail = [failure?.httpCode, failure?.message, failure?.description, JSON.stringify(item?.json?.errors ?? '')].filter(Boolean).join(' ');\nconst reason = /429|too many|allocation|neurons|spacing your requests/i.test(detail)\n  ? 'Se agotó la cuota gratuita diaria de Cloudflare Workers AI (se renueva a las 00:00 UTC). Inténtalo más tarde.'\n  : /401|403|authentication|unauthori[sz]ed|forbidden/i.test(detail)\n    ? 'La credencial \"Cloudflare Workers AI\" de n8n no es válida o no tiene permiso de Workers AI.'\n    : /404|7003|could not route|not found/i.test(detail)\n      ? 'Cloudflare no encontró la cuenta o el modelo: revisa el Account ID en Initialize Job.'\n      : (item?.json?.errors?.[0]?.message || failure?.message || 'Cloudflare Workers AI no devolvió imagen.');\nconst finalUrl = b64 ? 'data:' + mime(b64) + ';base64,' + b64 : null;\nstate.jobs[ticket] = {\n  ...(state.jobs[ticket] || {}),\n  status: finalUrl ? 'completed' : 'error',\n  // background = solo fondo (sin producto ni texto); Clic compone el producto real y los textos encima.\n  kind: 'background',\n  finalUrl,\n  finalUrls: finalUrl ? { instagram: finalUrl, facebook: finalUrl, whatsapp: finalUrl } : {},\n  error: finalUrl ? null : String(reason).slice(0, 300),\n  completedAt: new Date().toISOString(),\n};\nreturn [{ json: { ticket_id: ticket, status: state.jobs[ticket].status, error: state.jobs[ticket].error } }];"
+        "jsCode": "// Guarda la foto mejorada para /webhook/status. La misma imagen cuadrada sirve para las tres redes.\nconst ticket = $('Initialize Job').first().json.ticket_id;\nconst state = $getWorkflowStaticData('global');\nstate.jobs ??= {};\nconst item = $input.first();\nconst b64 = item?.json?.result?.image ?? item?.json?.image;\nconst mime = value => value.startsWith('iVBOR') ? 'image/png' : value.startsWith('UklGR') ? 'image/webp' : 'image/jpeg';\n// Mensajes claros para los errores típicos (n8n resume el error HTTP en item.json.error).\nconst failure = item?.json?.error;\nconst detail = [failure?.httpCode, failure?.message, failure?.description, JSON.stringify(item?.json?.errors ?? '')].filter(Boolean).join(' ');\nconst reason = /429|too many|allocation|neurons|spacing your requests/i.test(detail)\n  ? 'Se agotó la cuota gratuita diaria de Cloudflare Workers AI (se renueva a las 00:00 UTC). Inténtalo más tarde.'\n  : /401|403|authentication|unauthori[sz]ed|forbidden/i.test(detail)\n    ? 'La credencial \"Cloudflare Workers AI\" de n8n no es válida o no tiene permiso de Workers AI.'\n    : /404|7003|could not route|not found/i.test(detail)\n      ? 'Cloudflare no encontró la cuenta o el modelo: revisa el Account ID en Initialize Job.'\n      : (item?.json?.errors?.[0]?.message || failure?.message || 'Cloudflare Workers AI no devolvió imagen.');\nconst finalUrl = b64 ? 'data:' + mime(b64) + ';base64,' + b64 : null;\nstate.jobs[ticket] = {\n  ...(state.jobs[ticket] || {}),\n  status: finalUrl ? 'completed' : 'error',\n  // enhanced = la foto real del cliente, mejorada (sin texto). Clic pone los textos encima como capas editables.\n  kind: 'enhanced',\n  finalUrl,\n  finalUrls: finalUrl ? { instagram: finalUrl, facebook: finalUrl, whatsapp: finalUrl } : {},\n  error: finalUrl ? null : String(reason).slice(0, 300),\n  completedAt: new Date().toISOString(),\n};\nreturn [{ json: { ticket_id: ticket, status: state.jobs[ticket].status, error: state.jobs[ticket].error } }];"
       },
       "id": "6f0c1a10-0006-4a00-8000-00000000c1c0",
       "name": "Finalize Job",
@@ -178,25 +201,25 @@
       "main": [
         [
           {
-            "node": "Split Formats",
+            "node": "Prepare Photo",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Split Formats": {
+    "Prepare Photo": {
       "main": [
         [
           {
-            "node": "Cloudflare Workers AI: FLUX",
+            "node": "Cloudflare FLUX.2: mejorar foto",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Cloudflare Workers AI: FLUX": {
+    "Cloudflare FLUX.2: mejorar foto": {
       "main": [
         [
           {
@@ -235,7 +258,7 @@
     "executionOrder": "v1"
   },
   "pinData": {},
-  "id": "clicFluxBackgrounds",
+  "id": "clicPhotoEnhance",
   "meta": {
     "templateCredsSetupCompleted": false
   },
